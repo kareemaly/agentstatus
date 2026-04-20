@@ -35,6 +35,11 @@ type InstallConfig struct {
 	// Project, when non-empty, targets a project-level config file instead of
 	// the user-level default.
 	Project string
+	// ConfigRoot overrides the per-adapter base config directory. Intended for
+	// tests; production callers should leave this empty to use the adapter's
+	// OS-native default (os.UserHomeDir for Claude). Ignored when Project is
+	// set.
+	ConfigRoot string
 }
 
 // InstallResult is one adapter's outcome from an install or uninstall pass.

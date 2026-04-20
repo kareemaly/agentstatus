@@ -36,22 +36,3 @@ func init() {
 		panic(err)
 	}
 }
-
-// installHooks is a placeholder for the next ticket. It returns
-// Skipped: true so the orchestrator can fan out without the Claude adapter
-// claiming success.
-func installHooks(_ agentstatus.InstallConfig) (agentstatus.InstallResult, error) {
-	return agentstatus.InstallResult{
-		Agent:   agentstatus.Claude,
-		Skipped: true,
-		Reason:  "not yet implemented",
-	}, nil
-}
-
-func uninstallHooks(_ agentstatus.InstallConfig) (agentstatus.InstallResult, error) {
-	return agentstatus.InstallResult{
-		Agent:   agentstatus.Claude,
-		Skipped: true,
-		Reason:  "not yet implemented",
-	}, nil
-}
