@@ -1,0 +1,10 @@
+{
+  "event_type": "tool.execute.after",
+  "session_id": "s1",
+  "parent_session_id": "",
+  "payload": {
+    "sessionID": "s1",
+    "tool": "bash",
+    "callID": "call-001"
+  }
+}

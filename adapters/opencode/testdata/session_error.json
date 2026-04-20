@@ -1,0 +1,9 @@
+{
+  "event_type": "session.error",
+  "session_id": "s1",
+  "parent_session_id": "",
+  "payload": {
+    "sessionID": "s1",
+    "error": "session error message"
+  }
+}

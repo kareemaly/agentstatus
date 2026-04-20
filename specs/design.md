@@ -55,7 +55,7 @@ The library ships no compiled binary. `InstallHooks` generates and writes:
 
 - **Claude** → inline `curl` invocation as the `command` field in `~/.claude/settings.json` hook entries.
 - **Codex** → inline `curl` invocation as the `command` field in `~/.codex/hooks.json` hook entries (same mechanism as Claude). Requires `[features] codex_hooks = true` in `~/.codex/config.toml`; installer warns if not detected but does not modify `config.toml`.
-- **OpenCode** → a generated TypeScript plugin file at `~/.config/opencode/plugins/agentstatus.ts`.
+- **OpenCode** → a generated TypeScript plugin file at `<project>/.opencode/plugin/agentstatus.ts`. The plugin subscribes to OpenCode's in-process event bus and posts normalized events to the hub over HTTP. OpenCode has no user-level plugin directory — installation is always project-scoped (defaults to cwd if `cfg.Project` is empty).
 
 Requires `curl` and `sh` on the host. Universally present on macOS + Linux.
 
@@ -375,13 +375,24 @@ Current Codex runtime limitations (hooks mechanism is explicitly experimental); 
 
 ### OpenCode
 
-| Plugin event            | Signal                       |
+| Bus event / Hook        | Signal                       |
 |-------------------------|------------------------------|
-| `session.created` (no parent) | Status: starting       |
-| `session.status(busy)`  | Activity: true               |
+| `session.created`       | Status: starting             |
+| `session.status`        | Activity: true               |
 | `session.idle`          | Status: idle                 |
 | `permission.asked`      | Status: awaiting_input       |
 | `session.error`         | Status: error                |
+| `tool.execute.before` (typed hook) | Activity: true, Tool: `<name>` |
+| `tool.execute.after` (typed hook)  | Activity: true, Tool: `<name>` |
+
+#### OpenCode coverage gaps
+
+- No session lifecycle end event in the bus → library never emits `ended`; session appears when the first event arrives and disappears when events stop.
+- No per-event `parentID` for most events → `ParentSessionID` populated only from `session.created`; subsequent events for sub-sessions attributed to the sub-session ID only.
+- v2 `SessionEvent` types (`prompt`, `step.started`, `tool.called`, etc.) are client-side schema classes not published to the OpenCode bus — these granular events are not mappable without an SSE subscription, which is out of scope.
+- `permission.ask` Hooks entry is dead code (never triggered by OpenCode runtime); permission capture comes from the `permission.asked` bus event.
+- Plugin file must live in `<project>/.opencode/plugin/` — no user-level install path exists.
+- `OPENCODE_PURE=1` disables all external plugins; installer warns but does not fail.
 
 ---
 

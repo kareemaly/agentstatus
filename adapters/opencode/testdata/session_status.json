@@ -1,0 +1,9 @@
+{
+  "event_type": "session.status",
+  "session_id": "s1",
+  "parent_session_id": "",
+  "payload": {
+    "sessionID": "s1",
+    "status": "busy"
+  }
+}

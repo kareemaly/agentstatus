@@ -1,0 +1,14 @@
+{
+  "event_type": "session.created",
+  "session_id": "s2",
+  "parent_session_id": "s1",
+  "payload": {
+    "id": "s2",
+    "slug": "subagent-session",
+    "projectID": "p1",
+    "directory": "/home/user/project",
+    "parentID": "s1",
+    "title": "Subagent Session",
+    "version": "1"
+  }
+}

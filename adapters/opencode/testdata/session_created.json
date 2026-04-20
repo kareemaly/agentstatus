@@ -1,0 +1,14 @@
+{
+  "event_type": "session.created",
+  "session_id": "s1",
+  "parent_session_id": "",
+  "payload": {
+    "id": "s1",
+    "slug": "test-session",
+    "projectID": "p1",
+    "directory": "/home/user/project",
+    "parentID": "",
+    "title": "Test Session",
+    "version": "1"
+  }
+}

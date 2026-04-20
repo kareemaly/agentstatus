@@ -1,0 +1,9 @@
+{
+  "event_type": "message.part.delta",
+  "session_id": "s1",
+  "parent_session_id": "",
+  "payload": {
+    "sessionID": "s1",
+    "delta": "text chunk"
+  }
+}
