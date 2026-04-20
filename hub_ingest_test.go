@@ -397,6 +397,62 @@ func TestHTTP_MultiToolSequence(t *testing.T) {
 	}
 }
 
+func TestHTTP_PostToolUseFailureIsActivity(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	// PreToolUse(Bash) sets state to working/Bash.
+	// PostToolUseFailure(Bash) is the same (working, "Bash") pair → suppressed.
+	// Stop → idle. No error event should ever appear.
+	for _, fix := range []string{
+		"session_start.json",
+		"user_prompt_submit.json",
+		"pre_tool_use_bash.json",
+		"post_tool_use_failure.json",
+		"stop.json",
+	} {
+		resp := postFixture(t, srv, "claude", fix)
+		if resp.StatusCode != http.StatusAccepted {
+			t.Fatalf("%s: status %d", fix, resp.StatusCode)
+		}
+		_ = resp.Body.Close()
+	}
+
+	ch := stream.Channel()
+	e1 := recvOrFail(t, ch, time.Second) // starting
+	e2 := recvOrFail(t, ch, time.Second) // working, tool=""
+	e3 := recvOrFail(t, ch, time.Second) // working, tool="Bash"
+	e4 := recvOrFail(t, ch, time.Second) // idle   (PostToolUseFailure suppressed)
+
+	if e1.Status != agentstatus.StatusStarting {
+		t.Errorf("e1 status: %q", e1.Status)
+	}
+	if e2.Status != agentstatus.StatusWorking || e2.Tool != "" {
+		t.Errorf("e2: status=%q tool=%q", e2.Status, e2.Tool)
+	}
+	if e3.Status != agentstatus.StatusWorking || e3.Tool != "Bash" {
+		t.Errorf("e3: status=%q tool=%q", e3.Status, e3.Tool)
+	}
+	if e4.Status != agentstatus.StatusIdle {
+		t.Errorf("e4 status: %q", e4.Status)
+	}
+
+	// Confirm no error event arrived anywhere in the sequence.
+	for i, e := range []agentstatus.Event{e1, e2, e3, e4} {
+		if e.Status == agentstatus.StatusError {
+			t.Errorf("e%d: unexpected error status", i+1)
+		}
+	}
+
+	// Confirm no 5th event (PostToolUseFailure was suppressed).
+	select {
+	case ev := <-ch:
+		t.Fatalf("unexpected 5th event: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 func TestHTTP_ConcurrentIngest(t *testing.T) {
 	t.Parallel()
 	h, err := agentstatus.NewHub(agentstatus.HubConfig{BufferSize: 2048})

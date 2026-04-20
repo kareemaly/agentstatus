@@ -307,7 +307,7 @@ Sink wrappers:
 | `UserPromptSubmit`  | Activity: true (inferred: working)  |
 | `PreToolUse`        | Activity: true, Tool: `<name>`      |
 | `PostToolUse`       | Activity: true, Tool: `<name>`      |
-| `PostToolUseFailure`| Status: error                       |
+| `PostToolUseFailure`| Activity: true, Tool: `<name>`      |
 | `Stop`              | Status: idle                        |
 | `StopFailure`       | Status: error (fires instead of `Stop` on API errors; `error` field in `Raw`) |
 | `Notification`      | Status: awaiting_input — only for `notification_type` values `permission_prompt`, `idle_prompt`, `elicitation_dialog`; `auth_success` and unknown types are dropped |
@@ -318,6 +318,10 @@ Sink wrappers:
 | `SubagentStart`     | (new session, starting)             |
 | `SubagentStop`      | (subagent session → idle)           |
 | `SessionEnd`        | Status: ended                       |
+
+#### Tool failure vs. session failure
+
+`PostToolUseFailure` is everyday agent behavior — a tool returned a failure, Claude will retry or adapt. It surfaces as activity so consumers still see the tool context, but status stays `working`. `StopFailure` is the real error: the turn itself could not complete (rate limit, authentication, API error). Only `StopFailure` maps to `Status: error`.
 
 #### Dropped events and why
 

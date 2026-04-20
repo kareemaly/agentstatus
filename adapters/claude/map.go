@@ -87,8 +87,10 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 		return withTool(base(nil, true)), nil
 
 	case "PostToolUseFailure":
-		s := agentstatus.StatusError
-		return withTool(base(&s, false)), nil
+		// A failed tool call is normal agent operation — Claude tried something,
+		// got a failure, and will adapt. The session is not in an error state.
+		// Only StopFailure (turn-level API error) maps to Status: error.
+		return withTool(base(nil, true)), nil
 
 	case "Stop":
 		s := agentstatus.StatusIdle

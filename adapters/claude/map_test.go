@@ -50,7 +50,7 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 		{"user_prompt_submit.json", "UserPromptSubmit", want{activity: true, sessionID: "sess-1"}},
 		{"pre_tool_use_read.json", "PreToolUse", want{activity: true, tool: "Read", sessionID: "sess-1"}},
 		{"post_tool_use.json", "PostToolUse", want{activity: true, tool: "Read", sessionID: "sess-1"}},
-		{"post_tool_use_failure.json", "PostToolUseFailure", want{status: &errSt, tool: "Bash", sessionID: "sess-1"}},
+		{"post_tool_use_failure.json", "PostToolUseFailure", want{activity: true, tool: "Bash", sessionID: "sess-1"}},
 		{"stop.json", "Stop", want{status: &idle, sessionID: "sess-1"}},
 		{"notification.json", "Notification", want{status: &awaiting, sessionID: "sess-1"}},
 		{"permission_request.json", "PermissionRequest", want{status: &awaiting, sessionID: "sess-1"}},
