@@ -1,35 +1,33 @@
 # agentstatus
 
-A Go library for real-time status detection of coding agents (Claude Code, Codex, OpenCode, and more via custom adapters).
-
-One unified event stream across all your agents. Hook-first, no tmux dependency, no daemon, no DSL. Just a library.
-
-## Status
-
-Pre-release — API is unstable. Not published yet.
-
-Design doc: see [`specs/design.md`](specs/design.md) (coming soon).
-
-## What it does
-
-- Installs native hooks into each supported agent (one-liner per agent, reversible)
-- Consolidates hook events into a single `Hub` in your Go process
-- Emits `Event`s with normalized `Status` (`working` / `idle` / `awaiting_input` / `error` / `ended`)
-- Exposes a fluent pipeline (`Filter`, `Map`, `Debounce`, `Throttle`, `Fanout`) over the event stream
-- Ships reference sinks for webhook, Slack, file, and slog
+A Go library that tells you what your coding agents are doing in real
+time — `starting`, `working`, `idle`, `awaiting_input`, `error`,
+`ended` — via their native hook mechanisms.
 
 ## Supported agents (v0.1.0)
 
-- Claude Code — via native hooks (`~/.claude/settings.json`)
-- Codex — via `notify` command (`~/.codex/config.toml`)
-- OpenCode — via plugin (`~/.config/opencode/plugins/`)
+- **Claude Code** — hooks in `~/.claude/settings.json`
+- **Codex** — `notify` bridge in `~/.codex/config.toml`
+- **OpenCode** — plugin at `~/.config/opencode/plugins/agentstatus.ts`
 
-Custom agents: implement `agentstatus.Adapter` and call `RegisterAdapter`.
+macOS and Linux only. Requires `curl` and `sh`.
 
-## Platforms
+## Status
 
-macOS and Linux. Requires `curl` and `sh` on the host. Windows is untested.
+Pre-release. API unstable until `v1.0.0`. Not yet published.
+
+## Design
+
+Full design and invariants: [`specs/design.md`](specs/design.md).
+
+## Development
+
+```
+make vet test build lint
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-MIT (pending).
+[MIT](LICENSE).
