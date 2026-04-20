@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "SubagentStop",
+  "session_id": "parent-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/parent-1.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "stop_hook_active": false,
+  "agent_id": "agent-abc123",
+  "agent_type": "Explore",
+  "agent_transcript_path": "/Users/u/.claude/projects/repo/parent-1/subagents/agent-abc123.jsonl"
+}

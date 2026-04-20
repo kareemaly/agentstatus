@@ -180,6 +180,7 @@ type Signal struct {
     Work     string
     SessionID string
     ParentSessionID string
+    Raw      map[string]any // original hook payload; flows into Event.Raw
 }
 ```
 

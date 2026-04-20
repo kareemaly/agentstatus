@@ -1,13 +1,21 @@
 package agentstatus
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"maps"
+	"net/http"
 	"sync"
 
 	"github.com/kareemaly/agentstatus/internal/broadcast"
 )
+
+// MaxIngestBodyBytes caps the request body size accepted by Hub.Handler.
+// Larger bodies receive 413 Request Entity Too Large.
+const MaxIngestBodyBytes = 1 << 20 // 1 MiB
 
 // HubConfig configures a Hub. Zero values are valid and produce the documented
 // defaults.
@@ -156,6 +164,99 @@ func (h *Hub) dispatchSignal(agent Agent, sig Signal) {
 		Work:            sig.Work,
 		At:              sig.At,
 		Tags:            tags,
+		Raw:             sig.Raw,
 	}
 	h.bcast.Publish(ev)
+}
+
+// Ingest is the transport-agnostic entry point. Adapters are looked up by
+// agent name; the payload is JSON-decoded into a map and handed to the
+// adapter's MapHookEvent. A nil-signal return drops silently (unknown event
+// or metadata-only event); a non-nil signal is dispatched through the
+// decision machine.
+//
+// Ingest returning nil guarantees the signal was dispatched, not that any
+// subscriber observed the resulting Event — slow subscribers may have
+// dropped it per their own buffer policy.
+func (h *Hub) Ingest(agent Agent, payload []byte) error {
+	adapter, ok := lookupAdapter(agent)
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrUnknownAgent, agent)
+	}
+
+	var m map[string]any
+	if err := json.Unmarshal(payload, &m); err != nil {
+		return fmt.Errorf("agentstatus: invalid JSON: %w", err)
+	}
+
+	event, _ := m["hook_event_name"].(string)
+	sig, err := adapter.MapHookEvent(event, m)
+	if err != nil {
+		return fmt.Errorf("agentstatus: adapter %q map error: %w", agent, err)
+	}
+	if sig == nil {
+		return nil
+	}
+	h.dispatchSignal(agent, *sig)
+	return nil
+}
+
+// Handler returns an http.Handler that accepts POST /hook/{agent} and
+// forwards bodies into Ingest. The handler is safe for concurrent use.
+//
+// Status codes:
+//   - 202 Accepted on success
+//   - 400 Bad Request on malformed JSON or read error
+//   - 404 Not Found on unknown agent
+//   - 405 Method Not Allowed on non-POST (provided by net/http for the
+//     method-aware route)
+//   - 413 Request Entity Too Large when the body exceeds MaxIngestBodyBytes
+//   - 500 Internal Server Error for everything else (also routed through
+//     HubConfig.ErrorHandler)
+func (h *Hub) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /hook/{agent}", h.handleIngest)
+	return mux
+}
+
+func (h *Hub) handleIngest(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, MaxIngestBodyBytes)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "read error", http.StatusBadRequest)
+		return
+	}
+
+	agent := Agent(r.PathValue("agent"))
+	if err := h.Ingest(agent, body); err != nil {
+		switch {
+		case errors.Is(err, ErrUnknownAgent):
+			http.Error(w, "unknown agent", http.StatusNotFound)
+		case isJSONError(err):
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+		default:
+			h.errH(err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func isJSONError(err error) bool {
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	return errors.As(err, &syntaxErr) || errors.As(err, &typeErr)
+}
+
+// ServeHTTP is a convenience wrapper that mounts Handler at addr and blocks
+// until http.ListenAndServe returns. Consumers needing graceful shutdown
+// should use Handler() with their own *http.Server.
+func (h *Hub) ServeHTTP(addr string) error {
+	return http.ListenAndServe(addr, h.Handler())
 }
