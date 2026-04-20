@@ -148,3 +148,93 @@ func TestMapHookEvent_MissingFieldsTolerated(t *testing.T) {
 		t.Errorf("got %+v", sig)
 	}
 }
+
+func TestMapHookEvent_AgentIDPropagation(t *testing.T) {
+	t.Parallel()
+
+	const parentID = "parent-sess"
+	const agentID = "subagent-xyz"
+
+	cases := []struct {
+		name    string
+		event   string
+		payload map[string]any
+		wantSID string
+		wantPID string
+	}{
+		{
+			name:  "PreToolUse with agent_id",
+			event: "PreToolUse",
+			payload: map[string]any{
+				"hook_event_name": "PreToolUse",
+				"session_id":      parentID,
+				"agent_id":        agentID,
+				"tool_name":       "Read",
+			},
+			wantSID: agentID,
+			wantPID: parentID,
+		},
+		{
+			name:  "PostToolUse with agent_id",
+			event: "PostToolUse",
+			payload: map[string]any{
+				"hook_event_name": "PostToolUse",
+				"session_id":      parentID,
+				"agent_id":        agentID,
+			},
+			wantSID: agentID,
+			wantPID: parentID,
+		},
+		{
+			name:  "Stop with agent_id",
+			event: "Stop",
+			payload: map[string]any{
+				"hook_event_name": "Stop",
+				"session_id":      parentID,
+				"agent_id":        agentID,
+			},
+			wantSID: agentID,
+			wantPID: parentID,
+		},
+		{
+			name:  "PreToolUse without agent_id",
+			event: "PreToolUse",
+			payload: map[string]any{
+				"hook_event_name": "PreToolUse",
+				"session_id":      "sess-only",
+				"tool_name":       "Bash",
+			},
+			wantSID: "sess-only",
+			wantPID: "",
+		},
+		{
+			name:  "empty string agent_id treated as absent",
+			event: "Stop",
+			payload: map[string]any{
+				"hook_event_name": "Stop",
+				"session_id":      "sess-only",
+				"agent_id":        "",
+			},
+			wantSID: "sess-only",
+			wantPID: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sig, err := MapHookEvent(tc.event, tc.payload)
+			if err != nil {
+				t.Fatalf("MapHookEvent: %v", err)
+			}
+			if sig == nil {
+				t.Fatal("expected signal, got nil")
+			}
+			if sig.SessionID != tc.wantSID {
+				t.Errorf("SessionID: got %q want %q", sig.SessionID, tc.wantSID)
+			}
+			if sig.ParentSessionID != tc.wantPID {
+				t.Errorf("ParentSessionID: got %q want %q", sig.ParentSessionID, tc.wantPID)
+			}
+		})
+	}
+}

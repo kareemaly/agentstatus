@@ -13,30 +13,31 @@ import (
 // error today; the signature reserves the seam for adapters that need to
 // surface parse failures separately from drops.
 func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, error) {
+	// Claude emits agent_id on every hook fired within a subagent context.
+	// Whenever agent_id is non-empty it is the true session identifier and the
+	// outer session_id becomes the parent. This applies to all event types, not
+	// only SubagentStart/SubagentStop.
 	sessionID := getString(payload, "session_id")
+	parentSessionID := ""
+	if agentID := getString(payload, "agent_id"); agentID != "" {
+		parentSessionID = sessionID
+		sessionID = agentID
+	}
 	at := getTime(payload)
 
 	base := func(s *agentstatus.Status, activity bool) *agentstatus.Signal {
 		return &agentstatus.Signal{
-			At:        at,
-			Activity:  activity,
-			Status:    s,
-			SessionID: sessionID,
-			Raw:       payload,
+			At:              at,
+			Activity:        activity,
+			Status:          s,
+			SessionID:       sessionID,
+			ParentSessionID: parentSessionID,
+			Raw:             payload,
 		}
 	}
 
 	withTool := func(s *agentstatus.Signal) *agentstatus.Signal {
 		s.Tool = getString(payload, "tool_name")
-		return s
-	}
-
-	// subagentSession rebinds the session ids for SubagentStart/SubagentStop:
-	// per the Claude hooks schema the subagent's own identity is `agent_id`,
-	// while the parent session keeps emitting under its own `session_id`.
-	subagentSession := func(s *agentstatus.Signal) *agentstatus.Signal {
-		s.SessionID = getString(payload, "agent_id")
-		s.ParentSessionID = sessionID
 		return s
 	}
 
@@ -72,11 +73,11 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 
 	case "SubagentStart":
 		s := agentstatus.StatusStarting
-		return subagentSession(base(&s, false)), nil
+		return base(&s, false), nil
 
 	case "SubagentStop":
 		s := agentstatus.StatusIdle
-		return subagentSession(base(&s, false)), nil
+		return base(&s, false), nil
 
 	case "SessionEnd":
 		s := agentstatus.StatusEnded

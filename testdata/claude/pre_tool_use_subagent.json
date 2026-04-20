@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PreToolUse",
+  "session_id": "parent-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/parent-1.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "agent_id": "agent-abc123",
+  "tool_name": "Read",
+  "tool_input": { "file_path": "/repo/main.go" }
+}

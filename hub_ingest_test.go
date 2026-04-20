@@ -228,6 +228,43 @@ func TestHTTP_SubagentFlow(t *testing.T) {
 	}
 }
 
+func TestHTTP_SubagentIntraEvents(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	for _, fix := range []string{"subagent_start.json", "pre_tool_use_subagent.json", "subagent_stop.json"} {
+		resp := postFixture(t, srv, "claude", fix)
+		if resp.StatusCode != http.StatusAccepted {
+			t.Fatalf("%s: status %d", fix, resp.StatusCode)
+		}
+		_ = resp.Body.Close()
+	}
+
+	ch := stream.Channel()
+	e1 := recvOrFail(t, ch, time.Second)
+	e2 := recvOrFail(t, ch, time.Second)
+	e3 := recvOrFail(t, ch, time.Second)
+
+	for i, e := range []agentstatus.Event{e1, e2, e3} {
+		if e.SessionID != "agent-abc123" {
+			t.Errorf("[%d] SessionID: got %q want %q", i, e.SessionID, "agent-abc123")
+		}
+		if e.ParentSessionID != "parent-1" {
+			t.Errorf("[%d] ParentSessionID: got %q want %q", i, e.ParentSessionID, "parent-1")
+		}
+	}
+	if e1.Status != agentstatus.StatusStarting {
+		t.Errorf("e1 status: %q", e1.Status)
+	}
+	if e2.Tool != "Read" {
+		t.Errorf("e2 tool: %q", e2.Tool)
+	}
+	if e3.Status != agentstatus.StatusIdle {
+		t.Errorf("e3 status: %q", e3.Status)
+	}
+}
+
 func TestHTTP_ConcurrentIngest(t *testing.T) {
 	t.Parallel()
 	h, err := agentstatus.NewHub(agentstatus.HubConfig{BufferSize: 2048})

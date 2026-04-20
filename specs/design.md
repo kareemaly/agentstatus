@@ -279,6 +279,7 @@ Sink wrappers:
 - Subagents are modeled as **independent sessions** with `ParentSessionID` populated.
 - Library emits events for both parent and subagent sessions.
 - Consumers collapse via `stream.Filter(func(e Event) bool { return e.ParentSessionID == "" })` if desired.
+- Claude emits `agent_id` on **every** hook fired within a subagent context (not only `SubagentStart`/`SubagentStop`). The Claude adapter treats `agent_id` as the session identifier whenever it is a non-empty string, with the outer `session_id` becoming `ParentSessionID`. This means a `PreToolUse`, `PostToolUse`, or `Stop` fired inside a subagent is correctly attributed to the subagent's session rather than the parent's.
 
 ### Decision machine
 
