@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "installation.update-available",
+  "session_id": "",
+  "parent_session_id": "",
+  "payload": {
+    "version": "1.2.3"
+  }
+}

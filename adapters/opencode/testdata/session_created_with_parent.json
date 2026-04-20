@@ -1,14 +1,15 @@
 {
-  "event_type": "session.created",
-  "session_id": "s2",
-  "parent_session_id": "s1",
+  "hook_event_name": "session.created",
+  "session_id": "ses_child01cffetSRyGKrGBfTh1A",
+  "parent_session_id": "ses_25493201cffetSRyGKrGBfTh1A",
   "payload": {
-    "id": "s2",
-    "slug": "subagent-session",
-    "projectID": "p1",
-    "directory": "/home/user/project",
-    "parentID": "s1",
-    "title": "Subagent Session",
-    "version": "1"
+    "sessionID": "ses_child01cffetSRyGKrGBfTh1A",
+    "info": {
+      "id": "ses_child01cffetSRyGKrGBfTh1A",
+      "slug": "sub-session",
+      "directory": "/tmp/test-project",
+      "projectID": "global",
+      "parentID": "ses_25493201cffetSRyGKrGBfTh1A"
+    }
   }
 }

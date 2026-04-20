@@ -45,8 +45,9 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 		event   string
 		want    want
 	}{
-		{"session_created.json", "session.created", want{status: &starting, sessionID: "s1"}},
-		{"session_created_with_parent.json", "session.created", want{status: &starting, sessionID: "s2", parentID: "s1"}},
+		{"session_created.json", "session.created", want{status: &starting, sessionID: "ses_25493201cffetSRyGKrGBfTh1A"}},
+		{"session_created_with_parent.json", "session.created", want{status: &starting, sessionID: "ses_child01cffetSRyGKrGBfTh1A", parentID: "ses_25493201cffetSRyGKrGBfTh1A"}},
+		{"session_created_no_info.json", "session.created", want{status: &starting, sessionID: "ses_noinfo01cffetSRyGKrGBfTh"}},
 		{"session_status.json", "session.status", want{activity: true, sessionID: "s1"}},
 		{"session_idle.json", "session.idle", want{status: &idle, sessionID: "s1"}},
 		{"permission_asked.json", "permission.asked", want{status: &awaiting, sessionID: "s1"}},
@@ -54,6 +55,8 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 		{"tool_execute_before.json", "tool.execute.before", want{activity: true, sessionID: "s1", tool: "bash"}},
 		{"tool_execute_after.json", "tool.execute.after", want{activity: true, sessionID: "s1", tool: "bash"}},
 		{"dropped_message_delta.json", "message.part.delta", want{drop: true}},
+		{"installation_update_available.json", "installation.update-available", want{drop: true}},
+		{"server_instance_disposed.json", "server.instance.disposed", want{drop: true}},
 	}
 
 	for _, tc := range cases {

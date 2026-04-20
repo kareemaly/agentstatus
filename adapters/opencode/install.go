@@ -33,7 +33,7 @@ export default {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            event_type: event.type,
+            hook_event_name: event.type,
             session_id: sessionID,
             parent_session_id: parentSessionID,
             payload: props,
@@ -47,7 +47,7 @@ export default {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            event_type: "tool.execute.before",
+            hook_event_name: "tool.execute.before",
             session_id: inp.sessionID,
             parent_session_id: "",
             payload: { tool: inp.tool, callID: inp.callID },
@@ -61,7 +61,7 @@ export default {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            event_type: "tool.execute.after",
+            hook_event_name: "tool.execute.after",
             session_id: inp.sessionID,
             parent_session_id: "",
             payload: { tool: inp.tool, callID: inp.callID },

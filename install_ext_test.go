@@ -171,6 +171,9 @@ func TestInstallHooks_OpenCodeRoundTrip(t *testing.T) {
 	if !bytes.Contains(data, []byte("id: \"agentstatus.opencode\"")) {
 		t.Fatalf("plugin file missing id:\n%s", data)
 	}
+	if !bytes.Contains(data, []byte("hook_event_name:")) {
+		t.Fatalf("plugin file uses event_type instead of hook_event_name:\n%s", data)
+	}
 
 	uninstallRes, err := agentstatus.UninstallHooks(cfg)
 	if err != nil {

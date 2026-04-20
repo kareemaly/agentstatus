@@ -1,0 +1,6 @@
+{
+  "hook_event_name": "server.instance.disposed",
+  "session_id": "",
+  "parent_session_id": "",
+  "payload": {}
+}

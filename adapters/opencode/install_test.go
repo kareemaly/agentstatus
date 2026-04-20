@@ -306,3 +306,15 @@ func TestPlugin_ContainsToolHooks(t *testing.T) {
 		t.Fatal("plugin missing tool.execute.after hook")
 	}
 }
+
+func TestPlugin_ContainsHookEventName(t *testing.T) {
+	cfg := baseCfg(t)
+	res, _ := installHooks(cfg)
+	data, _ := os.ReadFile(res.Path)
+	if !bytes.Contains(data, []byte("hook_event_name:")) {
+		t.Fatal("plugin missing hook_event_name key — Hub will not route events")
+	}
+	if bytes.Contains(data, []byte("event_type:")) {
+		t.Fatal("plugin still contains event_type key — Hub reads hook_event_name")
+	}
+}

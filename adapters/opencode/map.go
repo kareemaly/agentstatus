@@ -7,19 +7,21 @@ import (
 )
 
 var droppedByDesign = map[string]string{
-	"session.updated":      "session metadata changed, not agent state",
-	"session.deleted":      "lifecycle end, no status signal needed",
-	"session.diff":         "internal diff, not agent state",
-	"session.compacted":    "internal housekeeping",
-	"message.updated":      "too noisy — full message churn",
-	"message.removed":      "too noisy",
-	"message.part.updated": "too noisy — per-token content churn",
-	"message.part.removed": "too noisy",
-	"message.part.delta":   "too noisy — per-character streaming",
-	"permission.replied":   "downstream of awaiting_input, no status change",
-	"file.edited":          "environment change, not agent state",
-	"todo.updated":         "environment change",
-	"command.executed":     "environment change",
+	"session.updated":               "session metadata changed, not agent state",
+	"session.deleted":               "lifecycle end, no status signal needed",
+	"session.diff":                  "internal diff, not agent state",
+	"session.compacted":             "internal housekeeping",
+	"message.updated":               "too noisy — full message churn",
+	"message.removed":               "too noisy",
+	"message.part.updated":          "too noisy — per-token content churn",
+	"message.part.removed":          "too noisy",
+	"message.part.delta":            "too noisy — per-character streaming",
+	"permission.replied":            "downstream of awaiting_input, no status change",
+	"file.edited":                   "environment change, not agent state",
+	"todo.updated":                  "environment change",
+	"command.executed":              "environment change",
+	"installation.update-available": "internal version check, not agent state",
+	"server.instance.disposed":      "shutdown signal, not agent state",
 }
 
 func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, error) {
@@ -40,8 +42,11 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 
 	switch event {
 	case "session.created":
-		sessionID := getString(props, "id")
-		parentSessionID := getString(props, "parentID")
+		sessionID := getString(props, "sessionID")
+		parentSessionID := ""
+		if info, ok := props["info"].(map[string]any); ok {
+			parentSessionID = getString(info, "parentID")
+		}
 		status := agentstatus.StatusStarting
 		sig = &agentstatus.Signal{
 			At:              getTime(props),

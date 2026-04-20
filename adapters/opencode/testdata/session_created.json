@@ -1,14 +1,15 @@
 {
-  "event_type": "session.created",
-  "session_id": "s1",
+  "hook_event_name": "session.created",
+  "session_id": "ses_25493201cffetSRyGKrGBfTh1A",
   "parent_session_id": "",
   "payload": {
-    "id": "s1",
-    "slug": "test-session",
-    "projectID": "p1",
-    "directory": "/home/user/project",
-    "parentID": "",
-    "title": "Test Session",
-    "version": "1"
+    "sessionID": "ses_25493201cffetSRyGKrGBfTh1A",
+    "info": {
+      "id": "ses_25493201cffetSRyGKrGBfTh1A",
+      "slug": "what-s-2-2",
+      "directory": "/tmp/test-project",
+      "projectID": "global",
+      "parentID": ""
+    }
   }
 }
