@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "WorktreeCreate",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "name": "feature-auth"
+}

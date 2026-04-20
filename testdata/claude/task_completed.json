@@ -1,0 +1,11 @@
+{
+  "hook_event_name": "TaskCompleted",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "task_id": "task-001",
+  "task_subject": "Implement user authentication",
+  "teammate_name": "implementer",
+  "team_name": "my-project"
+}

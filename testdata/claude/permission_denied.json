@@ -1,0 +1,14 @@
+{
+  "hook_event_name": "PermissionDenied",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "auto",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "rm -rf /tmp/build",
+    "description": "Clean build directory"
+  },
+  "tool_use_id": "toolu_01ABC123",
+  "reason": "Auto mode denied: command targets a path outside the project"
+}

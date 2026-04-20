@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "CwdChanged",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo/src",
+  "old_cwd": "/repo",
+  "new_cwd": "/repo/src"
+}

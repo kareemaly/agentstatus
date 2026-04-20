@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "InstructionsLoaded",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "file_path": "/repo/CLAUDE.md",
+  "load_reason": "session_start"
+}

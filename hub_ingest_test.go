@@ -265,6 +265,84 @@ func TestHTTP_SubagentIntraEvents(t *testing.T) {
 	}
 }
 
+func TestHTTP_ElicitationFlow(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	for _, fix := range []string{
+		"session_start.json",
+		"user_prompt_submit.json",
+		"elicitation_form.json",
+		"elicitation_result_accept.json",
+		"stop.json",
+	} {
+		resp := postFixture(t, srv, "claude", fix)
+		if resp.StatusCode != http.StatusAccepted {
+			t.Fatalf("%s: status %d", fix, resp.StatusCode)
+		}
+		_ = resp.Body.Close()
+	}
+
+	ch := stream.Channel()
+	e1 := recvOrFail(t, ch, time.Second) // starting
+	e2 := recvOrFail(t, ch, time.Second) // working (UserPromptSubmit)
+	e3 := recvOrFail(t, ch, time.Second) // awaiting_input (Elicitation)
+	e4 := recvOrFail(t, ch, time.Second) // working (ElicitationResult resumes)
+	e5 := recvOrFail(t, ch, time.Second) // idle (Stop)
+
+	if e1.Status != agentstatus.StatusStarting {
+		t.Errorf("e1 status: %q", e1.Status)
+	}
+	if e2.Status != agentstatus.StatusWorking || e2.PrevStatus != agentstatus.StatusStarting {
+		t.Errorf("e2: %q←%q", e2.Status, e2.PrevStatus)
+	}
+	if e3.Status != agentstatus.StatusAwaitingInput || e3.PrevStatus != agentstatus.StatusWorking {
+		t.Errorf("e3: %q←%q", e3.Status, e3.PrevStatus)
+	}
+	if e4.Status != agentstatus.StatusWorking || e4.PrevStatus != agentstatus.StatusAwaitingInput {
+		t.Errorf("e4: %q←%q", e4.Status, e4.PrevStatus)
+	}
+	if e5.Status != agentstatus.StatusIdle || e5.PrevStatus != agentstatus.StatusWorking {
+		t.Errorf("e5: %q←%q", e5.Status, e5.PrevStatus)
+	}
+}
+
+func TestHTTP_StopFailureProducesError(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	resp := postFixture(t, srv, "claude", "stop_failure.json")
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status: %d", resp.StatusCode)
+	}
+	_ = resp.Body.Close()
+
+	e := recvOrFail(t, stream.Channel(), time.Second)
+	if e.Status != agentstatus.StatusError {
+		t.Errorf("status: got %q want error", e.Status)
+	}
+}
+
+func TestHTTP_NotificationAuthSuccessNoEvent(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	resp := postFixture(t, srv, "claude", "notification_auth_success.json")
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("status: %d", resp.StatusCode)
+	}
+	_ = resp.Body.Close()
+
+	select {
+	case ev := <-stream.Channel():
+		t.Fatalf("unexpected event: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 func TestHTTP_ConcurrentIngest(t *testing.T) {
 	t.Parallel()
 	h, err := agentstatus.NewHub(agentstatus.HubConfig{BufferSize: 2048})

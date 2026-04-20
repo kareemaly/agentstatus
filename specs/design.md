@@ -309,12 +309,42 @@ Sink wrappers:
 | `PostToolUse`       | Activity: true                      |
 | `PostToolUseFailure`| Status: error                       |
 | `Stop`              | Status: idle                        |
-| `Notification`      | Status: awaiting_input              |
+| `StopFailure`       | Status: error (fires instead of `Stop` on API errors; `error` field in `Raw`) |
+| `Notification`      | Status: awaiting_input — only for `notification_type` values `permission_prompt`, `idle_prompt`, `elicitation_dialog`; `auth_success` and unknown types are dropped |
 | `PermissionRequest` | Status: awaiting_input              |
+| `PermissionDenied`  | Activity: true (auto-mode classifier denial; model typically retries) |
+| `Elicitation`       | Status: awaiting_input (MCP server requesting user input mid-task) |
+| `ElicitationResult` | Activity: true (user responded; Claude resumes work) |
 | `SubagentStart`     | (new session, starting)             |
 | `SubagentStop`      | (subagent session → idle)           |
 | `SessionEnd`        | Status: ended                       |
-| `PreCompact`        | (metadata only, no status change)   |
+
+#### Dropped events and why
+
+A hook event maps to a status signal only when it represents a change in what Claude is doing. Events that do not meet this bar are explicitly dropped; they return `(nil, nil)` from `MapHookEvent` and produce no entry in the event stream.
+
+**Environment events** — the environment around Claude changed, not Claude itself:
+
+| Event               | Rationale                                                          |
+|---------------------|--------------------------------------------------------------------|
+| `InstructionsLoaded`| A CLAUDE.md was loaded into context; Claude's task did not change  |
+| `ConfigChange`      | A settings file changed; no effect on the current turn            |
+| `CwdChanged`        | Working directory changed; Claude may still be doing the same work |
+| `FileChanged`       | A watched file changed on disk; no Claude-state implication        |
+| `WorktreeCreate`    | Worktree scaffolding; Claude is not yet active in it              |
+| `WorktreeRemove`    | Cleanup after a worktree session ends                             |
+| `PreCompact`        | Context compaction is about to start; Claude is not yet done       |
+| `PostCompact`       | Compaction completed; session state is unchanged                  |
+
+**Agent-team workflow events** — teammates share `session_id` with the orchestrating session. The library has no per-teammate identity model in v0.1, so these cannot be attributed to a meaningful session:
+
+| Event          | Rationale                                                              |
+|----------------|------------------------------------------------------------------------|
+| `TaskCreated`  | A task object was created; no change to any agent's active status      |
+| `TaskCompleted`| A task was marked done; the orchestrating agent may still be running   |
+| `TeammateIdle` | A teammate is about to go idle; tracked under the parent session_id    |
+
+Consumers that need to observe any of these events can attach a generic HTTP observer in front of the hub endpoint. That pattern is outside the library's scope and does not require library changes.
 
 ### Codex
 

@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "PostCompact",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "trigger": "manual",
+  "compact_summary": "Summary of the compacted conversation"
+}

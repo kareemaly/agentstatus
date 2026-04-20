@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "TeammateIdle",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "teammate_name": "researcher",
+  "team_name": "my-project"
+}

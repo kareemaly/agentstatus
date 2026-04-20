@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "Notification",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "message": "An MCP server is requesting input",
+  "title": "Elicitation",
+  "notification_type": "elicitation_dialog"
+}

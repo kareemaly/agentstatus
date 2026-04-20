@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "ConfigChange",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "source": "project_settings",
+  "file_path": "/repo/.claude/settings.json"
+}

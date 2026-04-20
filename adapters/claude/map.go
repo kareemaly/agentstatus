@@ -6,13 +6,44 @@ import (
 	agentstatus "github.com/kareemaly/agentstatus"
 )
 
+// droppedByDesign is the set of events explicitly not mapped to a status
+// signal. A hook event maps to a signal only when it represents a change in
+// what Claude is doing. Events that carry no such implication are dropped:
+//
+//   - Environment events (InstructionsLoaded, ConfigChange, CwdChanged,
+//     FileChanged, WorktreeCreate, WorktreeRemove, PreCompact, PostCompact):
+//     the environment around Claude changed, not Claude itself.
+//   - Agent-team workflow events (TaskCreated, TaskCompleted, TeammateIdle):
+//     teammates share session_id with the orchestrating session; per-teammate
+//     identity modeling is out of scope for v0.1.
+var droppedByDesign = map[string]struct{}{
+	// Environment events: no Claude-state change
+	"InstructionsLoaded": {},
+	"ConfigChange":       {},
+	"CwdChanged":         {},
+	"FileChanged":        {},
+	"WorktreeCreate":     {},
+	"WorktreeRemove":     {},
+	"PreCompact":         {},
+	"PostCompact":        {},
+	// Agent-team workflow: teammates share session_id; no per-teammate model in v0.1
+	"TaskCreated":   {},
+	"TaskCompleted": {},
+	"TeammateIdle":  {},
+}
+
 // MapHookEvent translates a single Claude Code hook payload into a Signal.
 //
-// Returning (nil, nil) means "drop silently" — used for unknown event names
-// and for metadata-only events (PreCompact). MapHookEvent never returns an
-// error today; the signature reserves the seam for adapters that need to
-// surface parse failures separately from drops.
+// Returning (nil, nil) means "drop silently" — used for events in
+// droppedByDesign, for Notification types that carry no status implication
+// (auth_success, unknown types), and for unrecognised event names.
+// MapHookEvent never returns an error today; the signature reserves the seam
+// for adapters that need to surface parse failures separately from drops.
 func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, error) {
+	if _, drop := droppedByDesign[event]; drop {
+		return nil, nil
+	}
+
 	// Claude emits agent_id on every hook fired within a subagent context.
 	// Whenever agent_id is non-empty it is the true session identifier and the
 	// outer session_id becomes the parent. This applies to all event types, not
@@ -63,13 +94,43 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 		s := agentstatus.StatusIdle
 		return base(&s, false), nil
 
-	case "Notification":
-		s := agentstatus.StatusAwaitingInput
+	case "StopFailure":
+		// Fires instead of Stop when the turn ends due to an API error.
+		// The error field (rate_limit, authentication_failed, etc.) is preserved
+		// in Raw but not promoted to a typed field.
+		s := agentstatus.StatusError
 		return base(&s, false), nil
+
+	case "Notification":
+		// Dispatch on notification_type: only the three prompt-like types
+		// imply a status change. auth_success is an env event (drop). Unknown
+		// future types are also dropped for safety.
+		switch getString(payload, "notification_type") {
+		case "permission_prompt", "idle_prompt", "elicitation_dialog":
+			s := agentstatus.StatusAwaitingInput
+			return base(&s, false), nil
+		default:
+			return nil, nil
+		}
 
 	case "PermissionRequest":
 		s := agentstatus.StatusAwaitingInput
 		return base(&s, false), nil
+
+	case "PermissionDenied":
+		// Auto-mode classifier denied the tool call. The model typically
+		// retries; treat as activity rather than idle or awaiting.
+		return withTool(base(nil, true)), nil
+
+	case "Elicitation":
+		// MCP server requesting user input mid-task — same semantics as
+		// PermissionRequest.
+		s := agentstatus.StatusAwaitingInput
+		return base(&s, false), nil
+
+	case "ElicitationResult":
+		// User responded to an elicitation; Claude resumes work.
+		return base(nil, true), nil
 
 	case "SubagentStart":
 		s := agentstatus.StatusStarting
@@ -82,10 +143,6 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 	case "SessionEnd":
 		s := agentstatus.StatusEnded
 		return base(&s, false), nil
-
-	case "PreCompact":
-		// Metadata only; no status change.
-		return nil, nil
 
 	default:
 		// Unknown event — log-and-drop.

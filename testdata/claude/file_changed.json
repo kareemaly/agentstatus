@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "FileChanged",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "file_path": "/repo/.envrc",
+  "event": "change"
+}

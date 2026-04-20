@@ -59,6 +59,24 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 		{"session_end.json", "SessionEnd", want{status: &ended, sessionID: "sess-1"}},
 		{"pre_compact.json", "PreCompact", want{drop: true}},
 		{"unknown_event.json", "NonExistent", want{drop: true}},
+		// New mapped events
+		{"stop_failure.json", "StopFailure", want{status: &errSt, sessionID: "sess-1"}},
+		{"permission_denied.json", "PermissionDenied", want{activity: true, tool: "Bash", sessionID: "sess-1"}},
+		{"elicitation_form.json", "Elicitation", want{status: &awaiting, sessionID: "sess-1"}},
+		{"elicitation_url.json", "Elicitation", want{status: &awaiting, sessionID: "sess-1"}},
+		{"elicitation_result_accept.json", "ElicitationResult", want{activity: true, sessionID: "sess-1"}},
+		{"elicitation_result_decline.json", "ElicitationResult", want{activity: true, sessionID: "sess-1"}},
+		// Explicit drop rows (environment + agent-team events)
+		{"instructions_loaded.json", "InstructionsLoaded", want{drop: true}},
+		{"config_change.json", "ConfigChange", want{drop: true}},
+		{"cwd_changed.json", "CwdChanged", want{drop: true}},
+		{"file_changed.json", "FileChanged", want{drop: true}},
+		{"worktree_create.json", "WorktreeCreate", want{drop: true}},
+		{"worktree_remove.json", "WorktreeRemove", want{drop: true}},
+		{"post_compact.json", "PostCompact", want{drop: true}},
+		{"task_created.json", "TaskCreated", want{drop: true}},
+		{"task_completed.json", "TaskCompleted", want{drop: true}},
+		{"teammate_idle.json", "TeammateIdle", want{drop: true}},
 	}
 
 	for _, tc := range cases {
@@ -146,6 +164,64 @@ func TestMapHookEvent_MissingFieldsTolerated(t *testing.T) {
 	}
 	if sig == nil || sig.Status == nil || *sig.Status != agentstatus.StatusIdle {
 		t.Errorf("got %+v", sig)
+	}
+}
+
+func TestMapHookEvent_NotificationTypes(t *testing.T) {
+	t.Parallel()
+
+	awaiting := agentstatus.StatusAwaitingInput
+
+	cases := []struct {
+		fixture    string
+		wantDrop   bool
+		wantStatus *agentstatus.Status
+	}{
+		{"notification.json", false, &awaiting},
+		{"notification_idle_prompt.json", false, &awaiting},
+		{"notification_elicitation_dialog.json", false, &awaiting},
+		{"notification_auth_success.json", true, nil},
+		{"notification_unknown_type.json", true, nil},
+		{"notification_no_type.json", true, nil},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.fixture, func(t *testing.T) {
+			payload := loadFixture(t, tc.fixture)
+			sig, err := MapHookEvent("Notification", payload)
+			if err != nil {
+				t.Fatalf("MapHookEvent: %v", err)
+			}
+			if tc.wantDrop {
+				if sig != nil {
+					t.Fatalf("expected drop, got %+v", sig)
+				}
+				return
+			}
+			if sig == nil {
+				t.Fatal("expected signal, got nil")
+			}
+			if sig.Status == nil || *sig.Status != *tc.wantStatus {
+				t.Errorf("status: got %v want %v", sig.Status, tc.wantStatus)
+			}
+		})
+	}
+}
+
+func TestMapHookEvent_StopFailureRaw(t *testing.T) {
+	payload := loadFixture(t, "stop_failure.json")
+	sig, err := MapHookEvent("StopFailure", payload)
+	if err != nil {
+		t.Fatalf("MapHookEvent: %v", err)
+	}
+	if sig == nil {
+		t.Fatal("expected signal, got nil")
+	}
+	if sig.Raw["error"] != "rate_limit" {
+		t.Errorf("Raw[error]: got %v", sig.Raw["error"])
+	}
+	if sig.Raw["error_details"] != "429 Too Many Requests" {
+		t.Errorf("Raw[error_details]: got %v", sig.Raw["error_details"])
 	}
 }
 
