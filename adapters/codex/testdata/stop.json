@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "Stop",
+  "session_id": "codex-sess-1",
+  "transcript_path": "/tmp/codex/sess.jsonl",
+  "cwd": "/home/user/project",
+  "model": "gpt-4o",
+  "turn_id": "turn-abc1",
+  "stop_hook_active": false,
+  "last_assistant_message": "All tests are now passing."
+}

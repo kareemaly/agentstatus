@@ -1,0 +1,9 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "session_id": "codex-sess-1",
+  "transcript_path": "/tmp/codex/sess.jsonl",
+  "cwd": "/home/user/project",
+  "model": "gpt-4o",
+  "turn_id": "turn-abc1",
+  "prompt": "Fix the failing tests"
+}

@@ -54,7 +54,7 @@ Consumers get a single unified event stream across all agents, composable with f
 The library ships no compiled binary. `InstallHooks` generates and writes:
 
 - **Claude** → inline `curl` invocation as the `command` field in `~/.claude/settings.json` hook entries.
-- **Codex** → a ~5-line shell script at `~/.agentstatus/codex-bridge.sh` (stable library-owned path), referenced from `~/.codex/config.toml` `notify`.
+- **Codex** → inline `curl` invocation as the `command` field in `~/.codex/hooks.json` hook entries (same mechanism as Claude). Requires `[features] codex_hooks = true` in `~/.codex/config.toml`; installer warns if not detected but does not modify `config.toml`.
 - **OpenCode** → a generated TypeScript plugin file at `~/.config/opencode/plugins/agentstatus.ts`.
 
 Requires `curl` and `sh` on the host. Universally present on macOS + Linux.
@@ -352,13 +352,26 @@ Consumers that need to observe any of these events can attach a generic HTTP obs
 
 ### Codex
 
-| Notify event           | Signal                        |
-|------------------------|-------------------------------|
-| `session_meta`         | Status: starting              |
-| `task_started`         | Activity: true                |
-| `task_complete` / `agent-turn-complete` | Status: idle |
-| permission events      | Status: awaiting_input        |
-| `error`                | Status: error                 |
+| Hook event          | Signal                                     |
+|---------------------|--------------------------------------------|
+| `SessionStart`      | Status: starting                           |
+| `UserPromptSubmit`  | Activity: true (inferred: working)         |
+| `PreToolUse`        | Activity: true, Tool: `<tool_name>`        |
+| `PostToolUse`       | Activity: true, Tool: `<tool_name>`        |
+| `Stop`              | Status: idle                               |
+
+`session_id` is the thread id and maps to `SessionID`. No `agent_id` equivalent is currently documented; subagents are opaque to hooks and attributed to the parent session. `ParentSessionID` is always empty.
+
+#### Codex coverage gaps
+
+Current Codex runtime limitations (hooks mechanism is explicitly experimental); the library will map new events as Codex exposes them:
+
+- No `SessionEnd` → session never transitions to `ended`; it simply stops emitting events.
+- No permission / notification / elicitation events → no `awaiting_input` detection.
+- No `StopFailure` or tool-failure events → no `error` status.
+- No subagent lifecycle events → subagents are attributed to the parent session.
+- `PreToolUse` / `PostToolUse` only fire for the `Bash` tool today (current Codex runtime limitation).
+- Hooks only fire when `[features] codex_hooks = true` is set in `config.toml`; the installer warns but does not write that file.
 
 ### OpenCode
 

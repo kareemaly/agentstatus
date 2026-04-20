@@ -1,0 +1,14 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "codex-sess-1",
+  "transcript_path": "/tmp/codex/sess.jsonl",
+  "cwd": "/home/user/project",
+  "model": "gpt-4o",
+  "turn_id": "turn-abc1",
+  "tool_name": "Bash",
+  "tool_use_id": "call_xyz789",
+  "tool_input": {
+    "command": "go test ./..."
+  },
+  "tool_response": "ok\tgithub.com/example/repo\t0.123s"
+}
