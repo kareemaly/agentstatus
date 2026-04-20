@@ -1,0 +1,10 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "sess-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/sess-1.jsonl",
+  "cwd": "/repo",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": { "command": "go test ./..." },
+  "tool_use_id": "toolu_02DEF"
+}

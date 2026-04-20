@@ -343,6 +343,60 @@ func TestHTTP_NotificationAuthSuccessNoEvent(t *testing.T) {
 	}
 }
 
+func TestHTTP_MultiToolSequence(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	// 7 POSTs → 5 events (PostToolUse rows suppressed; each PostToolUse now
+	// carries the same (working, tool) pair as its preceding PreToolUse).
+	for _, fix := range []string{
+		"session_start.json",
+		"user_prompt_submit.json",
+		"pre_tool_use_read.json",
+		"post_tool_use.json",
+		"pre_tool_use_bash.json",
+		"post_tool_use_bash.json",
+		"stop.json",
+	} {
+		resp := postFixture(t, srv, "claude", fix)
+		if resp.StatusCode != http.StatusAccepted {
+			t.Fatalf("%s: status %d", fix, resp.StatusCode)
+		}
+		_ = resp.Body.Close()
+	}
+
+	ch := stream.Channel()
+	e1 := recvOrFail(t, ch, time.Second) // starting
+	e2 := recvOrFail(t, ch, time.Second) // working, tool=""
+	e3 := recvOrFail(t, ch, time.Second) // working, tool="Read"
+	e4 := recvOrFail(t, ch, time.Second) // working, tool="Bash"
+	e5 := recvOrFail(t, ch, time.Second) // idle, tool=""
+
+	if e1.Status != agentstatus.StatusStarting || e1.PrevStatus != "" {
+		t.Errorf("e1: %q←%q", e1.Status, e1.PrevStatus)
+	}
+	if e2.Status != agentstatus.StatusWorking || e2.PrevStatus != agentstatus.StatusStarting || e2.Tool != "" {
+		t.Errorf("e2: %q←%q tool=%q", e2.Status, e2.PrevStatus, e2.Tool)
+	}
+	if e3.Status != agentstatus.StatusWorking || e3.PrevStatus != agentstatus.StatusWorking || e3.Tool != "Read" {
+		t.Errorf("e3: %q←%q tool=%q", e3.Status, e3.PrevStatus, e3.Tool)
+	}
+	if e4.Status != agentstatus.StatusWorking || e4.PrevStatus != agentstatus.StatusWorking || e4.Tool != "Bash" {
+		t.Errorf("e4: %q←%q tool=%q", e4.Status, e4.PrevStatus, e4.Tool)
+	}
+	if e5.Status != agentstatus.StatusIdle || e5.PrevStatus != agentstatus.StatusWorking || e5.Tool != "" {
+		t.Errorf("e5: %q←%q tool=%q", e5.Status, e5.PrevStatus, e5.Tool)
+	}
+
+	// Confirm no 6th event arrives.
+	select {
+	case ev := <-ch:
+		t.Fatalf("unexpected 6th event: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 func TestHTTP_ConcurrentIngest(t *testing.T) {
 	t.Parallel()
 	h, err := agentstatus.NewHub(agentstatus.HubConfig{BufferSize: 2048})

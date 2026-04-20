@@ -23,17 +23,19 @@ type Signal struct {
 	Raw             map[string]any
 }
 
-// Transition is the internal return value of Decide. It is emitted only when a
-// Signal actually changes the session's Status; duplicates are suppressed.
+// Transition is the internal return value of Decide. It is emitted when the
+// pair (Status, Tool) changes; duplicates are suppressed.
 type Transition struct {
 	Status     Status
 	PrevStatus Status
+	Tool       string
 }
 
 // sessionState is the per-session state the decision machine carries between
 // Signals. Unexported by design: only Hub constructs and stores these.
 type sessionState struct {
 	Status Status
+	Tool   string
 }
 
 // Decide is a pure function from (state, signal) to (newState, *Transition).
@@ -42,10 +44,11 @@ type sessionState struct {
 //  1. If sig.Status != nil, it is authoritative (overrides Activity inference).
 //  2. Else if sig.Activity, the inferred status is StatusWorking.
 //  3. Else no candidate — state is returned unchanged, Transition is nil.
-//  4. If the candidate equals the current Status, the duplicate is suppressed:
-//     state is returned unchanged, Transition is nil.
-//  5. Otherwise the new state is returned along with a Transition preserving
-//     the previous Status.
+//  4. If the candidate (Status, Tool) pair equals the current state pair, the
+//     duplicate is suppressed: state is returned unchanged, Transition is nil.
+//  5. Otherwise the new state is returned along with a Transition. PrevStatus
+//     is the previous Status regardless of whether the change was driven by a
+//     status change, a tool change, or both.
 //
 // Decide has no I/O, no globals, no clock. The wall-clock time lives in
 // sig.At and is the caller's responsibility.
@@ -60,12 +63,13 @@ func Decide(state sessionState, sig Signal) (sessionState, *Transition) {
 		return state, nil
 	}
 
-	if candidate == state.Status {
+	if candidate == state.Status && sig.Tool == state.Tool {
 		return state, nil
 	}
 
-	return sessionState{Status: candidate}, &Transition{
+	return sessionState{Status: candidate, Tool: sig.Tool}, &Transition{
 		Status:     candidate,
 		PrevStatus: state.Status,
+		Tool:       sig.Tool,
 	}
 }

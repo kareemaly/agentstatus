@@ -84,7 +84,7 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 		return withTool(base(nil, true)), nil
 
 	case "PostToolUse":
-		return base(nil, true), nil
+		return withTool(base(nil, true)), nil
 
 	case "PostToolUseFailure":
 		s := agentstatus.StatusError

@@ -284,7 +284,7 @@ Sink wrappers:
 ### Decision machine
 
 - Pure function: `Decide(state, signal) -> (newState, *Transition)`.
-- Emits a Transition only when `Status` changes. Duplicates suppressed at source.
+- A `Transition` is emitted when the pair `(Status, Tool)` differs from the last emitted pair. `PrevStatus` always refers to the previous `Status` regardless of whether the transition was driven by a status change, a tool change, or both. This gives consumers per-tool visibility during an already-`working` turn without requiring a separate tool-level stream.
 - Authoritative hook events (e.g., Claude `Stop`, Codex `agent-turn-complete`) override inferred state.
 - No idle-window heuristic in v0.1.0 (hooks are authoritative). May be added if gap-driven.
 
@@ -306,7 +306,7 @@ Sink wrappers:
 | `SessionStart`      | Status: starting                    |
 | `UserPromptSubmit`  | Activity: true (inferred: working)  |
 | `PreToolUse`        | Activity: true, Tool: `<name>`      |
-| `PostToolUse`       | Activity: true                      |
+| `PostToolUse`       | Activity: true, Tool: `<name>`      |
 | `PostToolUseFailure`| Status: error                       |
 | `Stop`              | Status: idle                        |
 | `StopFailure`       | Status: error (fires instead of `Stop` on API errors; `error` field in `Raw`) |

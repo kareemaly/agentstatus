@@ -49,7 +49,7 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 		{"session_start.json", "SessionStart", want{status: &starting, sessionID: "sess-1"}},
 		{"user_prompt_submit.json", "UserPromptSubmit", want{activity: true, sessionID: "sess-1"}},
 		{"pre_tool_use_read.json", "PreToolUse", want{activity: true, tool: "Read", sessionID: "sess-1"}},
-		{"post_tool_use.json", "PostToolUse", want{activity: true, sessionID: "sess-1"}},
+		{"post_tool_use.json", "PostToolUse", want{activity: true, tool: "Read", sessionID: "sess-1"}},
 		{"post_tool_use_failure.json", "PostToolUseFailure", want{status: &errSt, tool: "Bash", sessionID: "sess-1"}},
 		{"stop.json", "Stop", want{status: &idle, sessionID: "sess-1"}},
 		{"notification.json", "Notification", want{status: &awaiting, sessionID: "sess-1"}},
@@ -222,6 +222,28 @@ func TestMapHookEvent_StopFailureRaw(t *testing.T) {
 	}
 	if sig.Raw["error_details"] != "429 Too Many Requests" {
 		t.Errorf("Raw[error_details]: got %v", sig.Raw["error_details"])
+	}
+}
+
+func TestMapHookEvent_PostToolUseMissingTool(t *testing.T) {
+	// PostToolUse with no tool_name in payload must tolerate the absence and
+	// produce an empty Tool rather than panicking or erroring.
+	payload := map[string]any{
+		"hook_event_name": "PostToolUse",
+		"session_id":      "sess-1",
+	}
+	sig, err := MapHookEvent("PostToolUse", payload)
+	if err != nil {
+		t.Fatalf("MapHookEvent: %v", err)
+	}
+	if sig == nil {
+		t.Fatal("expected signal, got nil")
+	}
+	if sig.Tool != "" {
+		t.Errorf("Tool: got %q want empty", sig.Tool)
+	}
+	if !sig.Activity {
+		t.Error("Activity: want true")
 	}
 }
 
