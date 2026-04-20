@@ -23,12 +23,8 @@ export default {
     event: async ({ event }) => {
       try {
         const props = event.properties as any
-        const sessionID =
-          event.type === "session.created"
-            ? (props?.id ?? "")
-            : (props?.sessionID ?? "")
-        const parentSessionID =
-          event.type === "session.created" ? (props?.parentID ?? "") : ""
+        const sessionID = props?.sessionID ?? ""
+        const parentSessionID = props?.info?.parentID ?? ""
         await fetch("{{.Endpoint}}/opencode", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

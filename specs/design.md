@@ -394,6 +394,12 @@ Current Codex runtime limitations (hooks mechanism is explicitly experimental); 
 - Plugin file must live in `<project>/.opencode/plugin/` — no user-level install path exists.
 - `OPENCODE_PURE=1` disables all external plugins; installer warns but does not fail.
 
+### Tool-name normalization
+
+The library normalizes `Event.Tool` to start with an upper-case first rune. Claude already sends `Read`, `Bash`, etc.; OpenCode sends `read`, `bash`; Codex sends `Bash`. After normalization, consumers can filter on a single canonical spelling regardless of which agent emitted the event. `Event.Raw` preserves the agent's original tool-name casing for consumers that need it.
+
+Normalization is applied once in `Hub.dispatchSignal` when translating a `Signal` to an `Event`. The `Signal.Tool` value (and therefore `sessionState.Tool` used for duplicate suppression) carries the adapter's raw casing; only the published `Event.Tool` is title-cased.
+
 ---
 
 ## Known gaps and documented caveats

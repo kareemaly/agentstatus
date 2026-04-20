@@ -52,8 +52,11 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 		{"session_idle.json", "session.idle", want{status: &idle, sessionID: "s1"}},
 		{"permission_asked.json", "permission.asked", want{status: &awaiting, sessionID: "s1"}},
 		{"session_error.json", "session.error", want{status: &errSt, sessionID: "s1"}},
+		// session_id comes from wrapper top-level; inner payload has no sessionID.
 		{"tool_execute_before.json", "tool.execute.before", want{activity: true, sessionID: "s1", tool: "bash"}},
 		{"tool_execute_after.json", "tool.execute.after", want{activity: true, sessionID: "s1", tool: "bash"}},
+		// Degraded-input path: empty wrapper session_id, no inner sessionID → empty SessionID.
+		{"tool_execute_before_no_session.json", "tool.execute.before", want{activity: true, sessionID: "", tool: "bash"}},
 		{"dropped_message_delta.json", "message.part.delta", want{drop: true}},
 		{"installation_update_available.json", "installation.update-available", want{drop: true}},
 		{"server_instance_disposed.json", "server.instance.disposed", want{drop: true}},

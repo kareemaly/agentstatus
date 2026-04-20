@@ -307,6 +307,20 @@ func TestPlugin_ContainsToolHooks(t *testing.T) {
 	}
 }
 
+func TestPlugin_SessionIDFromProps(t *testing.T) {
+	cfg := baseCfg(t)
+	res, _ := installHooks(cfg)
+	data, _ := os.ReadFile(res.Path)
+	// Bug-2 regression: plugin must read props?.sessionID for every event,
+	// not props?.id which was wrong for session.created.
+	if !bytes.Contains(data, []byte("props?.sessionID")) {
+		t.Fatal("plugin must extract sessionID via props?.sessionID")
+	}
+	if bytes.Contains(data, []byte("props?.id")) {
+		t.Fatal("plugin must not use props?.id (was wrong for session.created)")
+	}
+}
+
 func TestPlugin_ContainsHookEventName(t *testing.T) {
 	cfg := baseCfg(t)
 	res, _ := installHooks(cfg)

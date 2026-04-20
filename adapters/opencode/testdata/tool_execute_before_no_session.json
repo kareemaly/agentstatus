@@ -1,0 +1,6 @@
+{
+  "hook_event_name": "tool.execute.before",
+  "session_id": "",
+  "parent_session_id": "",
+  "payload": { "tool": "bash", "callID": "call-002" }
+}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	agentstatus "github.com/kareemaly/agentstatus"
 )
@@ -244,6 +245,29 @@ func TestMapHookEvent_PostToolUseMissingTool(t *testing.T) {
 	}
 	if !sig.Activity {
 		t.Error("Activity: want true")
+	}
+}
+
+func TestNormalizeTool_ViaHub(t *testing.T) {
+	h, err := agentstatus.NewHub(agentstatus.HubConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = h.Close() }()
+	stream := h.Events()
+
+	payload := []byte(`{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"bash"}`)
+	if err := h.Ingest(agentstatus.Claude, payload); err != nil {
+		t.Fatalf("Ingest: %v", err)
+	}
+
+	select {
+	case ev := <-stream.Channel():
+		if ev.Tool != "Bash" {
+			t.Errorf("Tool: got %q want %q", ev.Tool, "Bash")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no event")
 	}
 }
 

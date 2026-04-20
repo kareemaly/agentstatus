@@ -221,6 +221,37 @@ func TestHub_CloseIdempotent(t *testing.T) {
 	h.dispatchSignal(Claude, Signal{Activity: true, SessionID: "s1"})
 }
 
+func TestDispatch_NormalizesToolName(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"read", "Read"},
+		{"Bash", "Bash"},
+		{"", ""},
+		{"grep", "Grep"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			h := newTestHub(t)
+			stream := h.Events()
+			h.dispatchSignal(Claude, Signal{
+				Activity:  true,
+				SessionID: "s1",
+				Tool:      tc.in,
+			})
+			ev, ok := recvWithin(t, stream.Channel(), time.Second)
+			if !ok {
+				t.Fatal("no event")
+			}
+			if ev.Tool != tc.want {
+				t.Errorf("Tool: got %q want %q", ev.Tool, tc.want)
+			}
+		})
+	}
+}
+
 func TestHub_Concurrent(t *testing.T) {
 	t.Parallel()
 	h := newTestHub(t)

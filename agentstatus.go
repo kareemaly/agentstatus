@@ -1,6 +1,9 @@
 package agentstatus
 
-import "time"
+import (
+	"time"
+	"unicode"
+)
 
 // Agent identifies a coding-agent family (Claude Code, Codex, OpenCode, or a
 // custom adapter). Built-in agent names are declared as constants below; any
@@ -39,6 +42,18 @@ type Event struct {
 	At              time.Time
 	Tags            map[string]string
 	Raw             map[string]any
+}
+
+// NormalizeToolName upper-cases the first rune so all adapters emit a
+// consistent spelling (e.g. "read" → "Read", "Bash" → "Bash").
+// Event.Raw preserves the agent's original tool-name casing.
+func NormalizeToolName(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
 }
 
 // DropPolicy controls how bounded buffers behave when full. Only DropOldest is

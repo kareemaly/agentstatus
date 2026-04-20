@@ -42,67 +42,56 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 
 	switch event {
 	case "session.created":
-		sessionID := getString(props, "sessionID")
-		parentSessionID := ""
-		if info, ok := props["info"].(map[string]any); ok {
-			parentSessionID = getString(info, "parentID")
-		}
 		status := agentstatus.StatusStarting
 		sig = &agentstatus.Signal{
 			At:              getTime(props),
 			Status:          &status,
-			SessionID:       sessionID,
-			ParentSessionID: parentSessionID,
+			SessionID:       resolveSessionID(payload, props),
+			ParentSessionID: resolveParentSessionID(payload, props),
 			Raw:             payload,
 		}
 
 	case "session.status":
-		sessionID := getString(props, "sessionID")
 		sig = &agentstatus.Signal{
 			At:        getTime(props),
 			Activity:  true,
-			SessionID: sessionID,
+			SessionID: resolveSessionID(payload, props),
 			Raw:       payload,
 		}
 
 	case "session.idle":
-		sessionID := getString(props, "sessionID")
 		status := agentstatus.StatusIdle
 		sig = &agentstatus.Signal{
 			At:        getTime(props),
 			Status:    &status,
-			SessionID: sessionID,
+			SessionID: resolveSessionID(payload, props),
 			Raw:       payload,
 		}
 
 	case "permission.asked":
-		sessionID := getString(props, "sessionID")
 		status := agentstatus.StatusAwaitingInput
 		sig = &agentstatus.Signal{
 			At:        getTime(props),
 			Status:    &status,
-			SessionID: sessionID,
+			SessionID: resolveSessionID(payload, props),
 			Raw:       payload,
 		}
 
 	case "session.error":
-		sessionID := getString(props, "sessionID")
 		status := agentstatus.StatusError
 		sig = &agentstatus.Signal{
 			At:        getTime(props),
 			Status:    &status,
-			SessionID: sessionID,
+			SessionID: resolveSessionID(payload, props),
 			Raw:       payload,
 		}
 
 	case "tool.execute.before", "tool.execute.after":
-		sessionID := getString(props, "sessionID")
-		toolName := getString(props, "tool")
 		sig = &agentstatus.Signal{
 			At:        getTime(props),
 			Activity:  true,
-			SessionID: sessionID,
-			Tool:      toolName,
+			SessionID: resolveSessionID(payload, props),
+			Tool:      getString(props, "tool"),
 			Raw:       payload,
 		}
 
@@ -111,6 +100,27 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 	}
 
 	return sig, nil
+}
+
+// resolveSessionID prefers the wrapper's top-level "session_id"; falls back to
+// inner props "sessionID". Tool hook payloads only populate the wrapper field.
+func resolveSessionID(wrapper, inner map[string]any) string {
+	if s := getString(wrapper, "session_id"); s != "" {
+		return s
+	}
+	return getString(inner, "sessionID")
+}
+
+// resolveParentSessionID prefers the wrapper's top-level "parent_session_id";
+// falls back to inner props info.parentID (session.created shape).
+func resolveParentSessionID(wrapper, inner map[string]any) string {
+	if s := getString(wrapper, "parent_session_id"); s != "" {
+		return s
+	}
+	if info, ok := inner["info"].(map[string]any); ok {
+		return getString(info, "parentID")
+	}
+	return ""
 }
 
 func getString(m map[string]any, key string) string {
