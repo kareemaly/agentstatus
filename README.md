@@ -1,32 +1,156 @@
 # agentstatus
 
-A Go library that tells you what your coding agents are doing in real
-time — `starting`, `working`, `idle`, `awaiting_input`, `error`,
-`ended` — via their native hook mechanisms.
+A Go library that tells you what your coding agents are doing, in real time.
 
-## Supported agents (v0.1.0)
+Subscribes to native hook mechanisms in Claude Code, Codex, and OpenCode, normalizes the events into a unified stream, and gives you typed `Event`s you can filter, log, or pipe wherever you want.
 
-- **Claude Code** — hooks in `~/.claude/settings.json`
-- **Codex** — `notify` bridge in `~/.codex/config.toml`
-- **OpenCode** — plugin at `~/.config/opencode/plugins/agentstatus.ts`
+```
+starting → working → idle
+          ↓
+  awaiting_input / error / ended
+```
 
-macOS and Linux only. Requires `curl` and `sh`.
+## Install
+
+```bash
+go get github.com/kareemaly/agentstatus@latest
+```
+
+Requires Go 1.24+. macOS and Linux. `curl` and `sh` must be available (used by the installed hooks to POST events to the hub).
+
+## Quickstart
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "net/http"
+
+    agentstatus "github.com/kareemaly/agentstatus"
+    _ "github.com/kareemaly/agentstatus/adapters/claude"
+    _ "github.com/kareemaly/agentstatus/adapters/codex"
+    _ "github.com/kareemaly/agentstatus/adapters/opencode"
+)
+
+func main() {
+    // 1. Create a hub
+    hub, _ := agentstatus.NewHub(agentstatus.HubConfig{})
+    defer hub.Close()
+
+    // 2. Serve the hook endpoint
+    go http.ListenAndServe(":9090", hub.Handler())
+
+    // 3. Install hooks into every supported agent
+    agentstatus.InstallHooks(agentstatus.InstallConfig{
+        Endpoint: "http://localhost:9090/hook",
+        Agents:   agentstatus.AllAgents,
+    })
+
+    // 4. Subscribe to the event stream
+    for e := range hub.Events().Channel() {
+        fmt.Printf("[%s] %s: %s  tool=%q\n",
+            e.At.Format("15:04:05"), e.Agent, e.Status, e.Tool)
+    }
+}
+```
+
+Run this, then run `claude`, `codex`, or `opencode` in any project. Events stream into your loop.
+
+To remove hooks cleanly:
+
+```go
+agentstatus.UninstallHooks(agentstatus.InstallConfig{
+    Endpoint: "http://localhost:9090/hook",
+    Agents:   agentstatus.AllAgents,
+})
+```
+
+## What you get per event
+
+```go
+type Event struct {
+    Agent           Agent             // Claude, Codex, OpenCode
+    SessionID       string            // agent-provided session id
+    ParentSessionID string            // set on subagent lifecycle events
+    Status          Status            // working, idle, awaiting_input, error, ended, starting
+    PrevStatus      Status            // what status we were in before
+    Tool            string            // tool name (title-cased), if applicable
+    Work            string            // optional human-readable context
+    At              time.Time         // hook-provided timestamp
+    Tags            map[string]string // consumer-registered metadata
+    Raw             map[string]any    // original hook payload
+}
+```
+
+Tool names are normalized across agents (Claude's `Read` and OpenCode's `read` both surface as `"Read"`). Original casing is preserved in `Event.Raw`.
+
+## Supported agents
+
+| Agent      | Mechanism                        | Install target                                |
+|------------|----------------------------------|-----------------------------------------------|
+| Claude Code| Native hooks (JSON on stdin)     | `~/.claude/settings.json` (or project-level)  |
+| Codex      | `hooks.json` (experimental)      | `~/.codex/hooks.json` (or project-level)      |
+| OpenCode   | TypeScript plugin                | `<project>/.opencode/plugin/agentstatus.ts`   |
+
+### Coverage by agent
+
+| Signal              | Claude | Codex       | OpenCode |
+|---------------------|:------:|:-----------:|:--------:|
+| `starting`          |   ✓    |      ✓      |    ✓     |
+| `working`           |   ✓    |      ✓      |    ✓     |
+| `awaiting_input`    |   ✓    |      ✗      |    ✓     |
+| `idle`              |   ✓    |      ✓      |    ✓     |
+| `error`             |   ✓    |      ✗      |    ✓     |
+| `ended`             |   ✓    |      ✗      |    ✗     |
+| Tool visibility     |  all   |  Bash only  |   all    |
+| Subagent attribution|   ✓    |      ✗      |    ✓     |
+
+See [`specs/design.md`](specs/design.md) for per-agent coverage gap rationales and the full event → status mapping tables.
+
+## Adding a custom agent
+
+External adapters register the same way the built-in ones do:
+
+```go
+agentstatus.RegisterAdapter(agentstatus.Adapter{
+    Name:           "my-agent",
+    MapHookEvent:   myMapFunc,
+    InstallHooks:   myInstallFunc,
+    UninstallHooks: myUninstallFunc,
+})
+```
+
+See the built-in adapters under `adapters/{claude,codex,opencode}` for reference implementations.
+
+## Configuration notes per agent
+
+- **Claude** — nothing extra. Just install hooks and run `claude`.
+- **Codex** — requires `[features] codex_hooks = true` in `~/.codex/config.toml`. The installer warns if it's not set. The library **does not** modify `config.toml`.
+- **OpenCode** — OpenCode has no user-level plugin directory; installs are always project-scoped (defaults to cwd if `cfg.Project` is empty). Disabled if `OPENCODE_PURE=1` is set; installer warns.
+
+## Platform support
+
+- **macOS**: ✓
+- **Linux**: ✓
+- **Windows**: untested in v0.1. `flock(2)` and POSIX path conventions are assumed throughout. PRs welcome.
 
 ## Status
 
-Pre-release. API unstable until `v1.0.0`. Not yet published.
+`v0.x.y` — pre-release. API may change during initial real-world usage. Semver will be committed from `v1.0.0` once the library has been used in production for a few weeks.
 
 ## Design
 
-Full design and invariants: [`specs/design.md`](specs/design.md).
+The full design doc (invariants, architectural decisions, per-event mapping tables, coverage gaps) lives at [`specs/design.md`](specs/design.md). It's the source of truth; the README is the friendly front.
 
 ## Development
 
-```
+```bash
 make vet test build lint
 ```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for contribution guidelines, adding adapters, and running the test suite.
 
 ## License
 
