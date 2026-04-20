@@ -136,10 +136,14 @@ func TestInstall_SelfHealsEndpoint(t *testing.T) {
 func TestInstall_RejectsNonManaged(t *testing.T) {
 	cfg := baseCfg(t)
 	path := filepath.Join(cfg.ConfigRoot, ".opencode", "plugin", "agentstatus.ts")
-	os.MkdirAll(filepath.Dir(path), 0755)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	// Write non-managed file
-	os.WriteFile(path, []byte("// user-owned plugin\nexport default {}"), 0644)
+	if err := os.WriteFile(path, []byte("// user-owned plugin\nexport default {}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := installHooks(cfg)
 	if err == nil {
@@ -205,8 +209,12 @@ func TestUninstall_MissingFile(t *testing.T) {
 func TestUninstall_RejectsNonManaged(t *testing.T) {
 	cfg := baseCfg(t)
 	path := filepath.Join(cfg.ConfigRoot, ".opencode", "plugin", "agentstatus.ts")
-	os.MkdirAll(filepath.Dir(path), 0755)
-	os.WriteFile(path, []byte("// user-owned"), 0644)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("// user-owned"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := uninstallHooks(cfg)
 	if err == nil {
@@ -244,12 +252,8 @@ func TestResolvePath_ConfigRoot(t *testing.T) {
 }
 
 func TestInstall_OPENCODE_PURE_LogsWarning(t *testing.T) {
-	// Save old env
-	oldPure := os.Getenv("OPENCODE_PURE")
-	defer os.Setenv("OPENCODE_PURE", oldPure)
-
-	// Set OPENCODE_PURE
-	os.Setenv("OPENCODE_PURE", "1")
+	// t.Setenv handles cleanup automatically.
+	t.Setenv("OPENCODE_PURE", "1")
 
 	cfg := baseCfg(t)
 

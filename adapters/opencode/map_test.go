@@ -27,12 +27,12 @@ func TestMapHookEvent_AllRows(t *testing.T) {
 	t.Parallel()
 
 	type want struct {
-		drop        bool
-		status      *agentstatus.Status
-		activity    bool
-		tool        string
-		sessionID   string
-		parentID    string
+		drop      bool
+		status    *agentstatus.Status
+		activity  bool
+		tool      string
+		sessionID string
+		parentID  string
 	}
 
 	starting := agentstatus.StatusStarting
