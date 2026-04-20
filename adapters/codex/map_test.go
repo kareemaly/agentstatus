@@ -167,3 +167,67 @@ func TestMapHookEvent_MissingFieldsTolerated(t *testing.T) {
 		t.Errorf("got %+v", sig)
 	}
 }
+
+// Regression: Codex multi-tool sequence must produce the same event count as before
+// the tool-preservation change. PostToolUse carries the same tool name as PreToolUse,
+// so it is suppressed; no extra (working,"") flicker events should appear.
+func TestCodex_MultiToolNoFlicker(t *testing.T) {
+	t.Parallel()
+	h, err := agentstatus.NewHub(agentstatus.HubConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = h.Close() }()
+	stream := h.Events()
+
+	// SessionStart → UserPromptSubmit → PreToolUse(Bash) → PostToolUse(Bash) → Stop
+	// Expected: starting, working/"", working/"Bash", idle/"" (4 events; PostToolUse suppressed).
+	payloads := [][]byte{
+		[]byte(`{"hook_event_name":"SessionStart","session_id":"s1"}`),
+		[]byte(`{"hook_event_name":"UserPromptSubmit","session_id":"s1"}`),
+		[]byte(`{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash"}`),
+		[]byte(`{"hook_event_name":"PostToolUse","session_id":"s1","tool_name":"Bash"}`),
+		[]byte(`{"hook_event_name":"Stop","session_id":"s1"}`),
+	}
+	for _, p := range payloads {
+		if err := h.Ingest(agentstatus.Codex, p); err != nil {
+			t.Fatalf("Ingest: %v", err)
+		}
+	}
+
+	ch := stream.Channel()
+	recv := func() agentstatus.Event {
+		t.Helper()
+		select {
+		case ev := <-ch:
+			return ev
+		case <-time.After(time.Second):
+			t.Fatal("timeout")
+			return agentstatus.Event{}
+		}
+	}
+
+	e1 := recv()
+	e2 := recv()
+	e3 := recv()
+	e4 := recv()
+
+	if e1.Status != agentstatus.StatusStarting {
+		t.Errorf("e1 status: %q", e1.Status)
+	}
+	if e2.Status != agentstatus.StatusWorking || e2.Tool != "" {
+		t.Errorf("e2: status=%q tool=%q", e2.Status, e2.Tool)
+	}
+	if e3.Status != agentstatus.StatusWorking || e3.Tool != "Bash" {
+		t.Errorf("e3: status=%q tool=%q", e3.Status, e3.Tool)
+	}
+	if e4.Status != agentstatus.StatusIdle || e4.Tool != "" {
+		t.Errorf("e4: status=%q tool=%q", e4.Status, e4.Tool)
+	}
+
+	select {
+	case ev := <-ch:
+		t.Fatalf("unexpected 5th event: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}

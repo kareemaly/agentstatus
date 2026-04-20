@@ -160,7 +160,7 @@ func (h *Hub) dispatchSignal(agent Agent, sig Signal) {
 		ParentSessionID: sig.ParentSessionID,
 		Status:          trans.Status,
 		PrevStatus:      trans.PrevStatus,
-		Tool:            NormalizeToolName(sig.Tool),
+		Tool:            NormalizeToolName(trans.Tool),
 		Work:            sig.Work,
 		At:              sig.At,
 		Tags:            tags,

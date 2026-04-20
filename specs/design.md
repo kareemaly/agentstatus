@@ -285,6 +285,7 @@ Sink wrappers:
 
 - Pure function: `Decide(state, signal) -> (newState, *Transition)`.
 - A `Transition` is emitted when the pair `(Status, Tool)` differs from the last emitted pair. `PrevStatus` always refers to the previous `Status` regardless of whether the transition was driven by a status change, a tool change, or both. This gives consumers per-tool visibility during an already-`working` turn without requiring a separate tool-level stream.
+- An activity-only signal (no authoritative Status) with an empty Tool preserves the currently tracked Tool rather than clearing it. Tool is only reset when a signal carries an authoritative Status change. This prevents per-tool-call flicker on agents that fire frequent "still busy" events (notably OpenCode's `session.status`). When a Status change does occur, the signal's own Tool wins — including the common "clear on idle/ended/awaiting_input" case where the signal's Tool is empty.
 - Authoritative hook events (e.g., Claude `Stop`, Codex `agent-turn-complete`) override inferred state.
 - No idle-window heuristic in v0.1.0 (hooks are authoritative). May be added if gap-driven.
 

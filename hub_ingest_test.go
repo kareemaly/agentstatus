@@ -14,6 +14,7 @@ import (
 
 	agentstatus "github.com/kareemaly/agentstatus"
 	_ "github.com/kareemaly/agentstatus/adapters/claude"
+	_ "github.com/kareemaly/agentstatus/adapters/opencode"
 )
 
 func newServedHub(t *testing.T) (*agentstatus.Hub, *httptest.Server) {
@@ -449,6 +450,66 @@ func TestHTTP_PostToolUseFailureIsActivity(t *testing.T) {
 	select {
 	case ev := <-ch:
 		t.Fatalf("unexpected 5th event: %+v", ev)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestHTTP_OpenCodeNoFlickerWithBusyInterleaved(t *testing.T) {
+	t.Parallel()
+	h, srv := newServedHub(t)
+	stream := h.Events()
+
+	post := func(body string) {
+		t.Helper()
+		resp, err := http.Post(srv.URL+"/hook/opencode", "application/json", bytes.NewReader([]byte(body)))
+		if err != nil {
+			t.Fatalf("POST: %v", err)
+		}
+		if resp.StatusCode != http.StatusAccepted {
+			t.Fatalf("status %d", resp.StatusCode)
+		}
+		_ = resp.Body.Close()
+	}
+
+	// Realistic OpenCode multi-tool turn interleaved with session.status heartbeats.
+	// session.status carries no tool field; previously each one caused a spurious
+	// (working,"") event between tool calls.
+	post(`{"hook_event_name":"session.created","session_id":"ses-1","parent_session_id":"","payload":{"sessionID":"ses-1","info":{"parentID":""}}}`)
+	post(`{"hook_event_name":"session.status","session_id":"ses-1","parent_session_id":"","payload":{"sessionID":"ses-1","status":"busy"}}`)
+	post(`{"hook_event_name":"tool.execute.before","session_id":"ses-1","parent_session_id":"","payload":{"tool":"read","callID":"call-1"}}`)
+	post(`{"hook_event_name":"session.status","session_id":"ses-1","parent_session_id":"","payload":{"sessionID":"ses-1","status":"busy"}}`) // must NOT clear tool=read
+	post(`{"hook_event_name":"tool.execute.after","session_id":"ses-1","parent_session_id":"","payload":{"tool":"read","callID":"call-1"}}`)
+	post(`{"hook_event_name":"session.status","session_id":"ses-1","parent_session_id":"","payload":{"sessionID":"ses-1","status":"busy"}}`) // must NOT clear tool=read
+	post(`{"hook_event_name":"tool.execute.before","session_id":"ses-1","parent_session_id":"","payload":{"tool":"bash","callID":"call-2"}}`)
+	post(`{"hook_event_name":"session.idle","session_id":"ses-1","parent_session_id":"","payload":{"sessionID":"ses-1"}}`)
+
+	ch := stream.Channel()
+	e1 := recvOrFail(t, ch, time.Second) // starting/""
+	e2 := recvOrFail(t, ch, time.Second) // working/""  (first session.status)
+	e3 := recvOrFail(t, ch, time.Second) // working/"Read"
+	e4 := recvOrFail(t, ch, time.Second) // working/"Bash"
+	e5 := recvOrFail(t, ch, time.Second) // idle/""
+
+	if e1.Status != agentstatus.StatusStarting || e1.PrevStatus != "" || e1.Tool != "" {
+		t.Errorf("e1: status=%q prev=%q tool=%q", e1.Status, e1.PrevStatus, e1.Tool)
+	}
+	if e2.Status != agentstatus.StatusWorking || e2.PrevStatus != agentstatus.StatusStarting || e2.Tool != "" {
+		t.Errorf("e2: status=%q prev=%q tool=%q", e2.Status, e2.PrevStatus, e2.Tool)
+	}
+	if e3.Status != agentstatus.StatusWorking || e3.PrevStatus != agentstatus.StatusWorking || e3.Tool != "Read" {
+		t.Errorf("e3: status=%q prev=%q tool=%q", e3.Status, e3.PrevStatus, e3.Tool)
+	}
+	if e4.Status != agentstatus.StatusWorking || e4.PrevStatus != agentstatus.StatusWorking || e4.Tool != "Bash" {
+		t.Errorf("e4: status=%q prev=%q tool=%q", e4.Status, e4.PrevStatus, e4.Tool)
+	}
+	if e5.Status != agentstatus.StatusIdle || e5.PrevStatus != agentstatus.StatusWorking || e5.Tool != "" {
+		t.Errorf("e5: status=%q prev=%q tool=%q", e5.Status, e5.PrevStatus, e5.Tool)
+	}
+
+	// Confirm no 6th event (previously ~8 events with flicker).
+	select {
+	case ev := <-ch:
+		t.Fatalf("unexpected 6th event: %+v", ev)
 	case <-time.After(50 * time.Millisecond):
 	}
 }

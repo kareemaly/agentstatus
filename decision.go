@@ -63,13 +63,30 @@ func Decide(state sessionState, sig Signal) (sessionState, *Transition) {
 		return state, nil
 	}
 
-	if candidate == state.Status && sig.Tool == state.Tool {
+	// Determine the new Tool value:
+	//   - Authoritative status change (sig.Status != nil): sig.Tool wins, including
+	//     the common "clear on idle/ended/awaiting_input" case where sig.Tool is "".
+	//   - Non-empty sig.Tool: always wins (tool changed mid-working, e.g. PreToolUse).
+	//   - Activity-only with empty sig.Tool: preserve state.Tool so that frequent
+	//     "still busy" heartbeats (e.g. OpenCode session.status) don't clear the
+	//     tool that a preceding PreToolUse signal established.
+	var newTool string
+	switch {
+	case sig.Status != nil:
+		newTool = sig.Tool
+	case sig.Tool != "":
+		newTool = sig.Tool
+	default:
+		newTool = state.Tool
+	}
+
+	if candidate == state.Status && newTool == state.Tool {
 		return state, nil
 	}
 
-	return sessionState{Status: candidate, Tool: sig.Tool}, &Transition{
+	return sessionState{Status: candidate, Tool: newTool}, &Transition{
 		Status:     candidate,
 		PrevStatus: state.Status,
-		Tool:       sig.Tool,
+		Tool:       newTool,
 	}
 }

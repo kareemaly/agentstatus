@@ -252,6 +252,118 @@ func TestDecide_Table(t *testing.T) {
 	}
 }
 
+func TestDecide_PreservesToolAcrossActivity(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name          string
+		state         Status
+		stateTool     string
+		sig           Signal
+		wantTrans     bool
+		wantStatus    Status
+		wantTransTool string
+		wantStateTool string
+	}{
+		{
+			// Activity-only heartbeat with no tool must not clear an established tool.
+			name:          "activity-only empty tool preserves state.Tool",
+			state:         StatusWorking,
+			stateTool:     "Read",
+			sig:           Signal{Activity: true},
+			wantTrans:     false,
+			wantStateTool: "Read",
+		},
+		{
+			// Explicit tool in activity signal wins over preserved state.
+			name:          "activity-only non-empty tool overrides state.Tool",
+			state:         StatusWorking,
+			stateTool:     "Read",
+			sig:           Signal{Activity: true, Tool: "Bash"},
+			wantTrans:     true,
+			wantStatus:    StatusWorking,
+			wantTransTool: "Bash",
+			wantStateTool: "Bash",
+		},
+		{
+			// Authoritative idle clears tool (sig.Tool="" wins because sig.Status != nil).
+			name:          "authoritative idle clears tool",
+			state:         StatusWorking,
+			stateTool:     "Read",
+			sig:           Signal{Status: ptr(StatusIdle)},
+			wantTrans:     true,
+			wantStatus:    StatusIdle,
+			wantTransTool: "",
+			wantStateTool: "",
+		},
+		{
+			// Authoritative awaiting_input clears tool.
+			name:          "authoritative awaiting_input clears tool",
+			state:         StatusWorking,
+			stateTool:     "Read",
+			sig:           Signal{Status: ptr(StatusAwaitingInput)},
+			wantTrans:     true,
+			wantStatus:    StatusAwaitingInput,
+			wantTransTool: "",
+			wantStateTool: "",
+		},
+		{
+			// Status change from idle; preserved tool is "" (state.Tool already empty).
+			name:          "idle+activity-only empty tool: status change to working",
+			state:         StatusIdle,
+			stateTool:     "",
+			sig:           Signal{Activity: true},
+			wantTrans:     true,
+			wantStatus:    StatusWorking,
+			wantTransTool: "",
+			wantStateTool: "",
+		},
+		{
+			// Authoritative starting; sig.Tool="" wins (status change branch).
+			name:          "authoritative starting clears tool",
+			state:         StatusIdle,
+			stateTool:     "",
+			sig:           Signal{Status: ptr(StatusStarting)},
+			wantTrans:     true,
+			wantStatus:    StatusStarting,
+			wantTransTool: "",
+			wantStateTool: "",
+		},
+		{
+			// Authoritative error with a non-empty tool carries that tool through.
+			name:          "authoritative error with non-empty tool carries tool",
+			state:         StatusWorking,
+			stateTool:     "",
+			sig:           Signal{Status: ptr(StatusError), Tool: "Bash"},
+			wantTrans:     true,
+			wantStatus:    StatusError,
+			wantTransTool: "Bash",
+			wantStateTool: "Bash",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, trans := Decide(sessionState{Status: tc.state, Tool: tc.stateTool}, tc.sig)
+			if got.Tool != tc.wantStateTool {
+				t.Errorf("state.Tool: got %q, want %q", got.Tool, tc.wantStateTool)
+			}
+			if (trans != nil) != tc.wantTrans {
+				t.Fatalf("trans present: got %v, want %v", trans != nil, tc.wantTrans)
+			}
+			if !tc.wantTrans {
+				return
+			}
+			if trans.Status != tc.wantStatus {
+				t.Errorf("trans.Status: got %q, want %q", trans.Status, tc.wantStatus)
+			}
+			if trans.Tool != tc.wantTransTool {
+				t.Errorf("trans.Tool: got %q, want %q", trans.Tool, tc.wantTransTool)
+			}
+		})
+	}
+}
+
 func TestDecide_Deterministic(t *testing.T) {
 	t.Parallel()
 	st := sessionState{Status: StatusIdle}
