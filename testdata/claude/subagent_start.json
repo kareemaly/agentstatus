@@ -1,0 +1,8 @@
+{
+  "hook_event_name": "SubagentStart",
+  "session_id": "parent-1",
+  "transcript_path": "/Users/u/.claude/projects/repo/parent-1.jsonl",
+  "cwd": "/repo",
+  "agent_id": "agent-abc123",
+  "agent_type": "Explore"
+}

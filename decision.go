@@ -7,6 +7,11 @@ import "time"
 //
 // Signal carries no Agent field: the Agent is known at the adapter/ingest seam
 // and attached to the emitted Event there.
+//
+// Raw is the original hook payload. Decide does not read or write it; the
+// field flows around the decision machine into the emitted Event.Raw as a
+// design-mandated escape hatch for consumers that need provider-specific
+// fields not surfaced on Event.
 type Signal struct {
 	At              time.Time
 	Activity        bool
@@ -15,6 +20,7 @@ type Signal struct {
 	Work            string
 	SessionID       string
 	ParentSessionID string
+	Raw             map[string]any
 }
 
 // Transition is the internal return value of Decide. It is emitted only when a
