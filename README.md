@@ -88,11 +88,11 @@ Tool names are normalized across agents (Claude's `Read` and OpenCode's `read` b
 
 ## Supported agents
 
-| Agent      | Mechanism                        | Install target                                |
-|------------|----------------------------------|-----------------------------------------------|
-| Claude Code| Native hooks (JSON on stdin)     | `~/.claude/settings.json` (or project-level)  |
-| Codex      | `hooks.json` (experimental)      | `~/.codex/hooks.json` (or project-level)      |
-| OpenCode   | TypeScript plugin                | `<project>/.opencode/plugin/agentstatus.ts`   |
+| Agent      | Mechanism                        | Install target                                                         |
+|------------|----------------------------------|------------------------------------------------------------------------|
+| Claude Code| Native hooks (JSON on stdin)     | `~/.claude/settings.json` (or project-level)                           |
+| Codex      | `hooks.json` (experimental)      | `~/.codex/hooks.json` (or project-level)                               |
+| OpenCode   | TypeScript plugin                | `$XDG_CONFIG_HOME/opencode/plugins/agentstatus.ts` (or project-level)  |
 
 ### Coverage by agent
 
@@ -128,7 +128,7 @@ See the built-in adapters under `adapters/{claude,codex,opencode}` for reference
 
 - **Claude** — nothing extra. Just install hooks and run `claude`.
 - **Codex** — requires `[features] codex_hooks = true` in `~/.codex/config.toml`. The installer warns if it's not set. The library **does not** modify `config.toml`.
-- **OpenCode** — OpenCode has no user-level plugin directory; installs are always project-scoped (defaults to cwd if `cfg.Project` is empty). Disabled if `OPENCODE_PURE=1` is set; installer warns.
+- **OpenCode** — defaults to `$XDG_CONFIG_HOME/opencode/plugins/agentstatus.ts` (falling back to `~/.config/opencode/plugins/` when `XDG_CONFIG_HOME` is unset). Pass `cfg.Project` to install project-locally at `<project>/.opencode/plugins/agentstatus.ts` instead. Disabled if `OPENCODE_PURE=1` is set; installer warns.
 
 ## Platform support
 

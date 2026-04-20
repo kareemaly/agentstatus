@@ -55,7 +55,7 @@ The library ships no compiled binary. `InstallHooks` generates and writes:
 
 - **Claude** → inline `curl` invocation as the `command` field in `~/.claude/settings.json` hook entries.
 - **Codex** → inline `curl` invocation as the `command` field in `~/.codex/hooks.json` hook entries (same mechanism as Claude). Requires `[features] codex_hooks = true` in `~/.codex/config.toml`; installer warns if not detected but does not modify `config.toml`.
-- **OpenCode** → a generated TypeScript plugin file at `<project>/.opencode/plugin/agentstatus.ts`. The plugin subscribes to OpenCode's in-process event bus and posts normalized events to the hub over HTTP. OpenCode has no user-level plugin directory — installation is always project-scoped (defaults to cwd if `cfg.Project` is empty).
+- **OpenCode** → a generated TypeScript plugin file at `$XDG_CONFIG_HOME/opencode/plugins/agentstatus.ts` (user-level default; falls back to `~/.config/opencode/plugins/` when `XDG_CONFIG_HOME` is unset). Pass `cfg.Project` to install project-locally at `<project>/.opencode/plugins/agentstatus.ts` instead. The plugin subscribes to OpenCode's in-process event bus and posts normalized events to the hub over HTTP. OpenCode's plugin loader accepts both `plugin/` (singular) and `plugins/` (plural) as the subdirectory; we write to `plugins/` to match the official docs and the peon-ping convention.
 
 Requires `curl` and `sh` on the host. Universally present on macOS + Linux.
 
@@ -392,7 +392,6 @@ Current Codex runtime limitations (hooks mechanism is explicitly experimental); 
 - No per-event `parentID` for most events → `ParentSessionID` populated only from `session.created`; subsequent events for sub-sessions attributed to the sub-session ID only.
 - v2 `SessionEvent` types (`prompt`, `step.started`, `tool.called`, etc.) are client-side schema classes not published to the OpenCode bus — these granular events are not mappable without an SSE subscription, which is out of scope.
 - `permission.ask` Hooks entry is dead code (never triggered by OpenCode runtime); permission capture comes from the `permission.asked` bus event.
-- Plugin file must live in `<project>/.opencode/plugin/` — no user-level install path exists.
 - `OPENCODE_PURE=1` disables all external plugins; installer warns but does not fail.
 
 ### Tool-name normalization

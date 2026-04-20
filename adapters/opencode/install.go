@@ -71,20 +71,46 @@ export default {
 
 const managedMarker = "@managed-by-agentstatus: opencode"
 
+// resolvePath returns (path, "") for the install target.
+//
+// Resolution order:
+//  1. cfg.Project (absolute) → <Project>/.opencode/plugins/agentstatus.ts (project-local)
+//  2. cfg.ConfigRoot (tests) → <ConfigRoot>/.config/opencode/plugins/agentstatus.ts
+//     (ConfigRoot stands in for HOME, matching the Claude/Codex pattern)
+//  3. Default: <$XDG_CONFIG_HOME or $HOME/.config>/opencode/plugins/agentstatus.ts
+//     (user-level; matches OpenCode's documented global plugin location)
+//
+// OpenCode accepts both `plugin/` (singular) and `plugins/` (plural) as the
+// subdirectory name. We write to `plugins/` to match the official docs and
+// peon-ping's convention.
 func resolvePath(cfg agentstatus.InstallConfig) (string, string) {
 	if cfg.Project != "" {
-		return filepath.Join(cfg.Project, ".opencode", "plugin", "agentstatus.ts"), ""
+		return filepath.Join(cfg.Project, ".opencode", "plugins", "agentstatus.ts"), ""
 	}
 	if cfg.ConfigRoot != "" {
-		return filepath.Join(cfg.ConfigRoot, ".opencode", "plugin", "agentstatus.ts"), ""
+		return filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus.ts"), ""
 	}
-	cwd, _ := os.Getwd()
-	slog.Default().Info("opencode: no Project set, defaulting to cwd", "path", cwd)
-	return filepath.Join(cwd, ".opencode", "plugin", "agentstatus.ts"), cwd
+	return filepath.Join(userConfigDir(), "opencode", "plugins", "agentstatus.ts"), ""
+}
+
+// userConfigDir resolves the XDG-compliant user config base directory,
+// respecting $XDG_CONFIG_HOME if set. Falls back to $HOME/.config on macOS
+// and Linux. This intentionally does NOT use os.UserConfigDir() because that
+// returns ~/Library/Application Support on macOS, which is not where OpenCode
+// looks for plugins.
+func userConfigDir() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return xdg
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".config")
 }
 
 func installHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, error) {
-	path, defaultCwd := resolvePath(cfg)
+	path, _ := resolvePath(cfg)
 
 	unlock, err := configfile.Lock(path)
 	if err != nil {
@@ -156,11 +182,6 @@ func installHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, err
 	// Warn if OPENCODE_PURE is set
 	if os.Getenv("OPENCODE_PURE") != "" {
 		slog.Default().Warn("OPENCODE_PURE=1 detected — OpenCode will not load external plugins, including this one. Unset to use agentstatus.")
-	}
-
-	// Warn if defaulting to cwd (info level, not warning)
-	if defaultCwd != "" {
-		slog.Default().Info("opencode: installed plugin to cwd", "path", path)
 	}
 
 	return agentstatus.InstallResult{

@@ -157,7 +157,7 @@ func TestInstallHooks_OpenCodeRoundTrip(t *testing.T) {
 		t.Fatalf("install result = %+v", installRes)
 	}
 
-	path := filepath.Join(configRoot, ".opencode", "plugin", "agentstatus.ts")
+	path := filepath.Join(configRoot, ".config", "opencode", "plugins", "agentstatus.ts")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
@@ -225,7 +225,7 @@ func TestInstallHooks_AllThreeAgents(t *testing.T) {
 	// Verify files exist
 	claudePath := filepath.Join(configRoot, ".claude", "settings.json")
 	codexPath := filepath.Join(configRoot, ".codex", "hooks.json")
-	opencodePath := filepath.Join(configRoot, ".opencode", "plugin", "agentstatus.ts")
+	opencodePath := filepath.Join(configRoot, ".config", "opencode", "plugins", "agentstatus.ts")
 
 	if _, err := os.Stat(claudePath); err != nil {
 		t.Fatalf("Claude settings missing: %v", err)

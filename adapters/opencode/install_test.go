@@ -135,7 +135,7 @@ func TestInstall_SelfHealsEndpoint(t *testing.T) {
 
 func TestInstall_RejectsNonManaged(t *testing.T) {
 	cfg := baseCfg(t)
-	path := filepath.Join(cfg.ConfigRoot, ".opencode", "plugin", "agentstatus.ts")
+	path := filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus.ts")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestUninstall_MissingFile(t *testing.T) {
 
 func TestUninstall_RejectsNonManaged(t *testing.T) {
 	cfg := baseCfg(t)
-	path := filepath.Join(cfg.ConfigRoot, ".opencode", "plugin", "agentstatus.ts")
+	path := filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus.ts")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -246,8 +246,39 @@ func TestResolvePath_ConfigRoot(t *testing.T) {
 		ConfigRoot: "/tmp/config",
 	}
 	path, _ := resolvePath(cfg)
-	if !strings.HasPrefix(path, "/tmp/config") {
-		t.Fatalf("path = %s, should use ConfigRoot", path)
+	want := filepath.Join("/tmp/config", ".config", "opencode", "plugins", "agentstatus.ts")
+	if path != want {
+		t.Fatalf("path = %s, want %s", path, want)
+	}
+}
+
+func TestResolvePath_DefaultsToUserConfigDir_XDG(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "/tmp/fake-xdg")
+	cfg := agentstatus.InstallConfig{}
+	path, _ := resolvePath(cfg)
+	want := filepath.Join("/tmp/fake-xdg", "opencode", "plugins", "agentstatus.ts")
+	if path != want {
+		t.Fatalf("path = %s, want %s", path, want)
+	}
+}
+
+func TestResolvePath_DefaultsToHomeConfig_WhenXDGUnset(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "/tmp/fake-home")
+	cfg := agentstatus.InstallConfig{}
+	path, _ := resolvePath(cfg)
+	want := filepath.Join("/tmp/fake-home", ".config", "opencode", "plugins", "agentstatus.ts")
+	if path != want {
+		t.Fatalf("path = %s, want %s", path, want)
+	}
+}
+
+func TestResolvePath_ProjectUsesOpencodeDir(t *testing.T) {
+	cfg := agentstatus.InstallConfig{Project: "/home/user/myproj"}
+	path, _ := resolvePath(cfg)
+	want := filepath.Join("/home/user/myproj", ".opencode", "plugins", "agentstatus.ts")
+	if path != want {
+		t.Fatalf("path = %s, want %s", path, want)
 	}
 }
 
