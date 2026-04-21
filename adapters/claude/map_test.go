@@ -179,7 +179,7 @@ func TestMapHookEvent_NotificationTypes(t *testing.T) {
 		wantStatus *agentstatus.Status
 	}{
 		// Regression guard: these two must always map to StatusAwaitingInput.
-		{"notification.json", false, &awaiting},              // permission_prompt
+		{"notification.json", false, &awaiting},                    // permission_prompt
 		{"notification_elicitation_dialog.json", false, &awaiting}, // elicitation_dialog
 		// idle_prompt means "still idle" — Stop already established idle; drop.
 		{"notification_idle_prompt.json", true, nil},
