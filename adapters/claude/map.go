@@ -104,11 +104,13 @@ func MapHookEvent(event string, payload map[string]any) (*agentstatus.Signal, er
 		return base(&s, false), nil
 
 	case "Notification":
-		// Dispatch on notification_type: only the three prompt-like types
-		// imply a status change. auth_success is an env event (drop). Unknown
-		// future types are also dropped for safety.
+		// Dispatch on notification_type: only genuine prompt-like types imply
+		// a status change. idle_prompt fires after Claude has been idle for a
+		// while ("still idle") — the prior Stop already established idle, so
+		// idle_prompt adds no new information and is dropped. auth_success is
+		// an env event (drop). Unknown future types are also dropped for safety.
 		switch getString(payload, "notification_type") {
-		case "permission_prompt", "idle_prompt", "elicitation_dialog":
+		case "permission_prompt", "elicitation_dialog":
 			s := agentstatus.StatusAwaitingInput
 			return base(&s, false), nil
 		default:

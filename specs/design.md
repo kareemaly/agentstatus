@@ -311,7 +311,7 @@ Sink wrappers:
 | `PostToolUseFailure`| Activity: true, Tool: `<name>`      |
 | `Stop`              | Status: idle                        |
 | `StopFailure`       | Status: error (fires instead of `Stop` on API errors; `error` field in `Raw`) |
-| `Notification`      | Status: awaiting_input — only for `notification_type` values `permission_prompt`, `idle_prompt`, `elicitation_dialog`; `auth_success` and unknown types are dropped |
+| `Notification`      | Status: awaiting_input — only for `notification_type` values `permission_prompt`, `elicitation_dialog`; `idle_prompt`, `auth_success`, and unknown types are dropped |
 | `PermissionRequest` | Status: awaiting_input              |
 | `PermissionDenied`  | Activity: true (auto-mode classifier denial; model typically retries) |
 | `Elicitation`       | Status: awaiting_input (MCP server requesting user input mid-task) |
@@ -417,6 +417,52 @@ Normalization is applied once in `Hub.dispatchSignal` when translating a `Signal
 6. **Settings scope (Claude).** Project-level `.claude/settings.json` overrides user-level. Installer warns if a project-level settings.json exists without our hooks. `InstallConfig.Project` lets caller target project-level explicitly.
 
 7. **Hook schema drift.** Agents may rename or add events. Adapters tolerate unknown events (log-and-drop). Missing critical events (e.g., `Stop`) degrade the status machine but don't crash.
+
+---
+
+## Adapter Coverage
+
+This section consolidates the runtime limitations of each adapter in one place so consumers (cortex, future integrations, users building on top of agentstatus) know what they will and won't observe. These are limitations of the agent runtimes, not library design choices — the library will map new events as the agents expose them.
+
+### Status signal coverage
+
+| Status            | Claude | Codex | OpenCode |
+|-------------------|--------|-------|----------|
+| `starting`        | ✓      | ✓     | ✓        |
+| `working`         | ✓      | ✓     | ✓        |
+| `idle`            | ✓      | ✓     | ✓        |
+| `awaiting_input`  | ✓      | ✗     | ✓        |
+| `error`           | ✓      | ✗     | ✓        |
+| `ended`           | ✓      | ✗     | ✗        |
+
+### Tool visibility
+
+| Feature                | Claude      | Codex       | OpenCode    |
+|------------------------|-------------|-------------|-------------|
+| Tool name in events    | All tools   | Bash only   | All tools   |
+| Subagent attribution   | ✓           | ✗           | ✓ (partial) |
+
+### Claude gaps
+
+- **Auto-approved tools do not fire `PermissionRequest`.** If users have pre-approved tools in Claude settings, `StatusAwaitingInput` is never emitted for those tools. Consumers should treat `awaiting_input` as "definitely waiting" not "maybe waiting".
+- **`idle_prompt` is dropped.** Claude fires `Notification(idle_prompt)` when it has been idle for a while; it means "still idle", not "needs input". The prior `Stop` event already established idle state, so `idle_prompt` adds no new information and is silently dropped. The TUI correctly shows `idle` rather than `⏸`.
+
+### Codex gaps
+
+Codex hooks are explicitly experimental (`[features] codex_hooks = true` required). These gaps reflect the current Codex runtime, not library choices:
+
+- **No `StatusAwaitingInput`**: Codex emits no permission, notification, or elicitation events.
+- **No `StatusError`**: No `StopFailure` or tool-failure event in the Codex hook schema.
+- **No `StatusEnded`**: No `SessionEnd` event; sessions simply stop emitting events.
+- **No subagent lifecycle events**: Subagents are opaque to Codex hooks; all events are attributed to the parent session. `ParentSessionID` is always empty.
+- **Bash tool only**: `PreToolUse` / `PostToolUse` only fire for the `Bash` tool; other tool invocations are invisible.
+
+### OpenCode gaps
+
+- **No `StatusEnded`**: OpenCode's event bus has no session-lifecycle-end event. Sessions appear when the first event arrives and disappear when events stop.
+- **`ParentSessionID` from `session.created` only**: Subsequent events for sub-sessions carry only the sub-session ID; `ParentSessionID` is not available per-event. The parent link is established once at session start.
+- **`permission.ask` hook dead code**: The OpenCode `permission.ask` Hooks entry is never triggered by the OpenCode runtime. Permission detection comes from the `permission.asked` bus event.
+- **`OPENCODE_PURE=1` disables plugins**: If this env var is set, the OpenCode plugin cannot load. The installer warns but does not fail.
 
 ---
 

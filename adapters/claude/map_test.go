@@ -178,9 +178,12 @@ func TestMapHookEvent_NotificationTypes(t *testing.T) {
 		wantDrop   bool
 		wantStatus *agentstatus.Status
 	}{
-		{"notification.json", false, &awaiting},
-		{"notification_idle_prompt.json", false, &awaiting},
-		{"notification_elicitation_dialog.json", false, &awaiting},
+		// Regression guard: these two must always map to StatusAwaitingInput.
+		{"notification.json", false, &awaiting},              // permission_prompt
+		{"notification_elicitation_dialog.json", false, &awaiting}, // elicitation_dialog
+		// idle_prompt means "still idle" — Stop already established idle; drop.
+		{"notification_idle_prompt.json", true, nil},
+		// Non-status notifications: always drop.
 		{"notification_auth_success.json", true, nil},
 		{"notification_unknown_type.json", true, nil},
 		{"notification_no_type.json", true, nil},
