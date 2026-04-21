@@ -128,8 +128,11 @@ func (h *Hub) Events() Stream
 func (h *Hub) RegisterSession(sessionID string, tags map[string]string)
 func (h *Hub) UnregisterSession(sessionID string)
 
+// Sinks
+func (h *Hub) AttachSink(s Sink)
+
 // Lifecycle
-func (h *Hub) Close() error
+func (h *Hub) Close() error     // blocks until attached-sink forwarders drain
 ```
 
 ### Install / Uninstall
@@ -223,6 +226,9 @@ func ByTag(key, value string) func(Event) bool
 
 ### Sinks
 
+Sinks are the library's delivery extension point. A `Sink` is any type that
+can accept `Event` values from the Hub:
+
 ```go
 type Sink interface {
     Send(ctx context.Context, e Event) error
@@ -230,13 +236,32 @@ type Sink interface {
 }
 ```
 
-Reference implementations in subpackages:
-- `sinks/webhook` — generic HTTP POST
-- `sinks/file` — JSONL append
-- `sinks/slog` — structured log
-- `sinks/funcsink` — wrap a `func(Event) error`
+Consumers attach sinks via `Hub.AttachSink(s Sink)`. AttachSink is
+non-blocking and starts one dedicated forwarder goroutine per call; each
+forwarder has its own broadcast subscriber buffer so one slow sink cannot
+affect others or the Hub itself. Errors returned by `Send` are routed
+through `HubConfig.ErrorHandler`.
 
-Sink wrappers:
+`Hub.Close` blocks until every AttachSink-forwarder has drained its
+subscriber channel into its sink. This is a deliberate ordering guarantee:
+consumers can call `hub.Close()` immediately followed by `sink.Close()` and
+be sure the sink sees every broadcast event.
+
+Reference implementations:
+
+| Package          | Status   | Purpose                                     |
+|------------------|----------|---------------------------------------------|
+| `sinks/file`     | **v0.1.3** — implemented | JSONL append to a templated path on disk |
+| `sinks/webhook`  | stub     | Generic HTTP POST (future ticket)           |
+| `sinks/slog`     | stub     | Structured log bridge (future ticket)       |
+| `sinks/funcsink` | stub     | Wrap a `func(Event) error` (future ticket)  |
+
+`sinks/file` is the canonical example of the extension model: stdlib-only,
+its own buffered worker goroutine, drop-oldest on overflow (with a Drops
+counter), stale file-handle eviction, and idempotent Close. See
+`sinks/file/README.md` for usage.
+
+Planned sink wrappers (not yet implemented):
 - `sinks.WithRetry(s Sink, policy RetryPolicy) Sink`
 - `sinks.WithBuffer(s Sink, size int, drop DropPolicy) Sink`
 

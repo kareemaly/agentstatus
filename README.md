@@ -109,6 +109,37 @@ Tool names are normalized across agents (Claude's `Read` and OpenCode's `read` b
 
 See [`specs/design.md`](specs/design.md) for per-agent coverage gap rationales and the full event → status mapping tables.
 
+## Sinks
+
+Sinks durably deliver events somewhere beyond the in-memory Hub. Attach one
+via `Hub.AttachSink`; it runs on its own subscriber goroutine and never
+blocks the Hub or other sinks.
+
+```go
+import "github.com/kareemaly/agentstatus/sinks/file"
+
+sink, _ := file.New(file.Config{
+    PathTemplate: "~/tmp/agentstatus-events/{agent}/{date}/{hour}.jsonl",
+})
+defer sink.Close()
+hub.AttachSink(sink)
+```
+
+Built-in reference sinks live under `sinks/`:
+
+| Sink              | Status        | Purpose                                  |
+|-------------------|---------------|------------------------------------------|
+| `sinks/file`      | v0.1.3        | Append events as JSONL to a templated path on disk |
+| `sinks/webhook`   | stub          | Generic HTTP POST (planned)              |
+| `sinks/slog`      | stub          | Structured log bridge (planned)          |
+| `sinks/funcsink`  | stub          | Wrap a `func(Event) error` (planned)     |
+
+`Hub.Close` waits for attached sinks' forwarder goroutines to finish
+draining before returning, so `sink.Close()` immediately after
+`hub.Close()` sees every broadcast event. See
+[`sinks/file/README.md`](sinks/file/README.md) for the capture-script
+worked example.
+
 ## Adding a custom agent
 
 External adapters register the same way the built-in ones do:

@@ -49,6 +49,10 @@ type Hub struct {
 	sessions map[string]sessionState
 	tags     map[string]map[string]string
 	closed   bool
+
+	// sinks tracks goroutines started by AttachSink so Close can block until
+	// they have drained their subscriber channels into their respective Sinks.
+	sinks sync.WaitGroup
 }
 
 // NewHub constructs a Hub from the given config. It returns an error for
@@ -91,6 +95,7 @@ func (h *Hub) Close() error {
 	h.mu.Unlock()
 
 	h.bcast.Close()
+	h.sinks.Wait()
 	return nil
 }
 
