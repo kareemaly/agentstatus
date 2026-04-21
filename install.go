@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 )
+
+var markerPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,32}$`)
 
 // InstallHooks wires each requested agent's hook config to forward events to
 // cfg.Endpoint. It never aborts on a single adapter's failure — per-agent
@@ -35,6 +38,9 @@ func orchestrate(
 	if err := validateEndpoint(cfg.Endpoint); err != nil {
 		return nil, err
 	}
+	if err := validateMarker(cfg.Marker); err != nil {
+		return nil, err
+	}
 	agents := cfg.Agents
 	if len(agents) == 0 {
 		agents = AllAgents
@@ -63,6 +69,9 @@ func orchestrate(
 		if res.Agent == "" {
 			res.Agent = name
 		}
+		if res.Marker == "" {
+			res.Marker = cfg.Marker
+		}
 		if err != nil {
 			res.Installed = false
 			if res.Reason == "" {
@@ -72,6 +81,16 @@ func orchestrate(
 		out = append(out, res)
 	}
 	return out, nil
+}
+
+func validateMarker(marker string) error {
+	if marker == "" {
+		return errors.New("agentstatus: InstallConfig.Marker is required")
+	}
+	if !markerPattern.MatchString(marker) {
+		return fmt.Errorf("agentstatus: InstallConfig.Marker %q must match ^[a-zA-Z0-9_-]{1,32}$", marker)
+	}
+	return nil
 }
 
 func validateEndpoint(endpoint string) error {

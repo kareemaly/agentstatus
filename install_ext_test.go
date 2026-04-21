@@ -32,6 +32,7 @@ func TestInstallHooks_FullRoundTrip(t *testing.T) {
 	configRoot := t.TempDir()
 	cfg := agentstatus.InstallConfig{
 		Endpoint:   srv.URL + "/hook",
+		Marker:     "test",
 		Agents:     []agentstatus.Agent{agentstatus.Claude},
 		ConfigRoot: configRoot,
 	}
@@ -68,7 +69,7 @@ func TestInstallHooks_FullRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile after: %v", err)
 	}
-	if strings.Contains(string(after), "agentstatusManaged") {
+	if strings.Contains(string(after), "agentstatusMarker") {
 		t.Fatalf("managed marker still present after uninstall:\n%s", after)
 	}
 }
@@ -89,6 +90,7 @@ func TestInstallHooks_CodexRoundTrip(t *testing.T) {
 	configRoot := t.TempDir()
 	cfg := agentstatus.InstallConfig{
 		Endpoint:   srv.URL + "/hook",
+		Marker:     "test",
 		Agents:     []agentstatus.Agent{agentstatus.Codex},
 		ConfigRoot: configRoot,
 	}
@@ -125,7 +127,7 @@ func TestInstallHooks_CodexRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile after: %v", err)
 	}
-	if strings.Contains(string(after), "agentstatusManaged") {
+	if strings.Contains(string(after), "agentstatusMarker") {
 		t.Fatalf("managed marker still present after uninstall:\n%s", after)
 	}
 }
@@ -145,6 +147,7 @@ func TestInstallHooks_OpenCodeRoundTrip(t *testing.T) {
 	configRoot := t.TempDir()
 	cfg := agentstatus.InstallConfig{
 		Endpoint:   srv.URL + "/hook",
+		Marker:     "test",
 		Agents:     []agentstatus.Agent{agentstatus.OpenCode},
 		ConfigRoot: configRoot,
 	}
@@ -157,7 +160,7 @@ func TestInstallHooks_OpenCodeRoundTrip(t *testing.T) {
 		t.Fatalf("install result = %+v", installRes)
 	}
 
-	path := filepath.Join(configRoot, ".config", "opencode", "plugins", "agentstatus.ts")
+	path := filepath.Join(configRoot, ".config", "opencode", "plugins", "agentstatus-test.ts")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
@@ -168,7 +171,7 @@ func TestInstallHooks_OpenCodeRoundTrip(t *testing.T) {
 	if !bytes.Contains(data, []byte("@managed-by-agentstatus: opencode")) {
 		t.Fatalf("plugin file missing marker:\n%s", data)
 	}
-	if !bytes.Contains(data, []byte("id: \"agentstatus.opencode\"")) {
+	if !bytes.Contains(data, []byte("id: \"agentstatus.opencode.test\"")) {
 		t.Fatalf("plugin file missing id:\n%s", data)
 	}
 	if !bytes.Contains(data, []byte("hook_event_name:")) {
@@ -204,6 +207,7 @@ func TestInstallHooks_AllThreeAgents(t *testing.T) {
 	configRoot := t.TempDir()
 	cfg := agentstatus.InstallConfig{
 		Endpoint:   srv.URL + "/hook",
+		Marker:     "test",
 		Agents:     agentstatus.AllAgents,
 		ConfigRoot: configRoot,
 	}
@@ -225,7 +229,7 @@ func TestInstallHooks_AllThreeAgents(t *testing.T) {
 	// Verify files exist
 	claudePath := filepath.Join(configRoot, ".claude", "settings.json")
 	codexPath := filepath.Join(configRoot, ".codex", "hooks.json")
-	opencodePath := filepath.Join(configRoot, ".config", "opencode", "plugins", "agentstatus.ts")
+	opencodePath := filepath.Join(configRoot, ".config", "opencode", "plugins", "agentstatus-test.ts")
 
 	if _, err := os.Stat(claudePath); err != nil {
 		t.Fatalf("Claude settings missing: %v", err)
@@ -248,12 +252,12 @@ func TestInstallHooks_AllThreeAgents(t *testing.T) {
 
 	// Verify files cleaned
 	claudeData, _ := os.ReadFile(claudePath)
-	if strings.Contains(string(claudeData), "agentstatusManaged") {
+	if strings.Contains(string(claudeData), "agentstatusMarker") {
 		t.Fatal("Claude managed marker still present")
 	}
 
 	codexData, _ := os.ReadFile(codexPath)
-	if strings.Contains(string(codexData), "agentstatusManaged") {
+	if strings.Contains(string(codexData), "agentstatusMarker") {
 		t.Fatal("Codex managed marker still present")
 	}
 

@@ -55,7 +55,7 @@ The library ships no compiled binary. `InstallHooks` generates and writes:
 
 - **Claude** → inline `curl` invocation as the `command` field in `~/.claude/settings.json` hook entries.
 - **Codex** → inline `curl` invocation as the `command` field in `~/.codex/hooks.json` hook entries (same mechanism as Claude). Requires `[features] codex_hooks = true` in `~/.codex/config.toml`; installer warns if not detected but does not modify `config.toml`.
-- **OpenCode** → a generated TypeScript plugin file at `$XDG_CONFIG_HOME/opencode/plugins/agentstatus.ts` (user-level default; falls back to `~/.config/opencode/plugins/` when `XDG_CONFIG_HOME` is unset). Pass `cfg.Project` to install project-locally at `<project>/.opencode/plugins/agentstatus.ts` instead. The plugin subscribes to OpenCode's in-process event bus and posts normalized events to the hub over HTTP. OpenCode's plugin loader accepts both `plugin/` (singular) and `plugins/` (plural) as the subdirectory; we write to `plugins/` to match the official docs and the peon-ping convention.
+- **OpenCode** → a generated TypeScript plugin file at `$XDG_CONFIG_HOME/opencode/plugins/agentstatus-<marker>.ts` (user-level default; falls back to `~/.config/opencode/plugins/` when `XDG_CONFIG_HOME` is unset). Pass `cfg.Project` to install project-locally under `<project>/.opencode/plugins/` instead. The plugin subscribes to OpenCode's in-process event bus and posts normalized events to the hub over HTTP. OpenCode's plugin loader accepts both `plugin/` (singular) and `plugins/` (plural) as the subdirectory; we write to `plugins/` to match the official docs and the peon-ping convention. Filename embeds the marker so multiple consumers coexist as separate plugin files.
 
 Requires `curl` and `sh` on the host. Universally present on macOS + Linux.
 
@@ -140,12 +140,14 @@ func (h *Hub) Close() error     // blocks until attached-sink forwarders drain
 ```go
 type InstallConfig struct {
     Endpoint string   // e.g. http://localhost:9090/hook
+    Marker   string   // required: namespace identifier for this consumer
     Agents   []Agent  // or AllAgents
     Project  string   // optional: write to project-level settings instead of user-level
 }
 
 type InstallResult struct {
     Agent     Agent
+    Marker    string
     Installed bool
     Skipped   bool
     Reason    string  // why skipped or failed
@@ -158,6 +160,32 @@ func UninstallHooks(cfg InstallConfig) ([]InstallResult, error)
 
 Per-adapter install logic is encapsulated in the adapter itself (see Adapter below).
 `InstallHooks` is idempotent and self-healing — running twice does not duplicate entries.
+
+#### Marker — per-consumer isolation
+
+`Marker` is required and must match `^[a-zA-Z0-9_-]{1,32}$`. Empty or malformed markers return a validation error from `InstallHooks` / `UninstallHooks` before any filesystem work.
+
+The marker scopes all writes and deletes to a single consumer's entries:
+
+- **Claude** (`~/.claude/settings.json`) and **Codex** (`~/.codex/hooks.json`): each managed hook entry carries `"agentstatusMarker": "<marker>"`. Install merges entries alongside existing ones (never clobbers a different marker or user-authored config). Uninstall removes only entries whose `agentstatusMarker` equals the caller's marker.
+- **OpenCode**: the generated plugin filename embeds the marker (`agentstatus-<marker>.ts`). Two consumers produce two distinct plugin files that coexist in the same `plugins/` directory; each has its own plugin `id` (`agentstatus.opencode.<marker>`).
+
+Example — cortex and a capture script coexisting:
+
+```go
+agentstatus.InstallHooks(agentstatus.InstallConfig{
+    Endpoint: "http://localhost:9090/hook",
+    Marker:   "cortex",
+    Agents:   agentstatus.AllAgents,
+})
+agentstatus.InstallHooks(agentstatus.InstallConfig{
+    Endpoint: "http://localhost:9191/capture",
+    Marker:   "capture",
+    Agents:   agentstatus.AllAgents,
+})
+```
+
+After both calls, every Claude/Codex/OpenCode hook event is posted to both endpoints. `UninstallHooks` with `Marker: "capture"` removes only capture's entries — cortex's remain untouched.
 
 ### Adapter (extension point)
 
@@ -319,7 +347,7 @@ Planned sink wrappers (not yet implemented):
 - All config files are backed up before write (`.bak` suffix with timestamp).
 - Writes are atomic (temp file + rename).
 - Cross-process safety via `flock(2)` on the config file during edit.
-- Every entry written by the library carries a stable marker so `UninstallHooks` only removes our entries.
+- Every entry written by the library carries a caller-supplied `Marker` so `UninstallHooks` only removes that consumer's entries and independent consumers coexist without clobbering each other.
 
 ---
 
@@ -578,6 +606,7 @@ func main() {
 
     agentstatus.InstallHooks(agentstatus.InstallConfig{
         Endpoint: "http://localhost:9090/hook",
+        Marker:   "my-tool",
         Agents:   agentstatus.AllAgents,
     })
 

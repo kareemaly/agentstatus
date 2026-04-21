@@ -22,6 +22,7 @@ func TestInstallHooks_UnknownAgent(t *testing.T) {
 	withCleanRegistry(t, func() {
 		res, err := InstallHooks(InstallConfig{
 			Endpoint: "http://localhost:9090/hook",
+			Marker:   "test",
 			Agents:   []Agent{"nonexistent"},
 		})
 		if err != nil {
@@ -51,6 +52,7 @@ func TestInstallHooks_UnknownAgentDoesNotAbortOthers(t *testing.T) {
 		)
 		res, err := InstallHooks(InstallConfig{
 			Endpoint: "http://localhost:9090/hook",
+			Marker:   "test",
 			Agents:   []Agent{"nonexistent", "fake"},
 		})
 		if err != nil {
@@ -77,10 +79,36 @@ func TestInstallHooks_BadEndpoint(t *testing.T) {
 		t.Run(ep, func(t *testing.T) {
 			res, err := InstallHooks(InstallConfig{
 				Endpoint: ep,
+				Marker:   "test",
 				Agents:   []Agent{Claude},
 			})
 			if err == nil {
 				t.Fatalf("expected validation error for %q", ep)
+			}
+			if res != nil {
+				t.Fatalf("expected nil results on validation failure, got %+v", res)
+			}
+		})
+	}
+}
+
+func TestInstallHooks_BadMarker(t *testing.T) {
+	cases := map[string]string{
+		"empty":       "",
+		"with space":  "my tool",
+		"too long":    "this-is-way-too-long-to-be-a-valid-marker-value",
+		"punctuation": "my.tool",
+		"slash":       "a/b",
+	}
+	for name, marker := range cases {
+		t.Run(name, func(t *testing.T) {
+			res, err := InstallHooks(InstallConfig{
+				Endpoint: "http://localhost:9090/hook",
+				Marker:   marker,
+				Agents:   []Agent{Claude},
+			})
+			if err == nil {
+				t.Fatalf("expected validation error for marker %q", marker)
 			}
 			if res != nil {
 				t.Fatalf("expected nil results on validation failure, got %+v", res)
@@ -94,6 +122,7 @@ func TestInstallHooks_NilAdapterFunc(t *testing.T) {
 		registerStub(t, "fake", nil, nil)
 		res, err := InstallHooks(InstallConfig{
 			Endpoint: "http://localhost:9090/hook",
+			Marker:   "test",
 			Agents:   []Agent{"fake"},
 		})
 		if err != nil {

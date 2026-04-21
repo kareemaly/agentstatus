@@ -18,6 +18,7 @@ func baseCfg(t *testing.T) agentstatus.InstallConfig {
 	t.Helper()
 	return agentstatus.InstallConfig{
 		Endpoint:   "http://localhost:9090/hook",
+		Marker:     "test",
 		ConfigRoot: t.TempDir(),
 	}
 }
@@ -35,7 +36,7 @@ func readJSON(t *testing.T, path string) map[string]any {
 	return m
 }
 
-func managedHooksFor(t *testing.T, root map[string]any, event string) []map[string]any {
+func managedHooksFor(t *testing.T, root map[string]any, event, marker string) []map[string]any {
 	t.Helper()
 	hooks, _ := root["hooks"].(map[string]any)
 	groups, _ := hooks[event].([]any)
@@ -45,7 +46,7 @@ func managedHooksFor(t *testing.T, root map[string]any, event string) []map[stri
 		inner, _ := group["hooks"].([]any)
 		for _, h := range inner {
 			hm, _ := h.(map[string]any)
-			if managed, _ := hm[managedMarker].(bool); managed {
+			if m, _ := hm[markerField].(string); m == marker {
 				out = append(out, hm)
 			}
 		}
@@ -104,7 +105,7 @@ func TestInstall_EmptyDir(t *testing.T) {
 		t.Fatalf("hooks missing; root=%v", root)
 	}
 	for _, event := range installedEvents {
-		entries := managedHooksFor(t, root, event)
+		entries := managedHooksFor(t, root, event, cfg.Marker)
 		if len(entries) != 1 {
 			t.Fatalf("event %s: got %d managed hooks, want 1", event, len(entries))
 		}
@@ -183,7 +184,7 @@ func TestInstall_PreservesUserEntries(t *testing.T) {
 		for _, h := range inner {
 			hm, _ := h.(map[string]any)
 			cmd, _ := hm["command"].(string)
-			if managed, _ := hm[managedMarker].(bool); managed {
+			if m, _ := hm[markerField].(string); m == cfg.Marker {
 				sawOurs = true
 				continue
 			}
@@ -214,10 +215,10 @@ func TestInstall_SelfHealsEndpoint(t *testing.T) {
 					"matcher": "",
 					"hooks": []any{
 						map[string]any{
-							"type":        "command",
-							"command":     hookCommand(oldEndpoint),
-							"timeout":     10,
-							managedMarker: true,
+							"type":      "command",
+							"command":   hookCommand(oldEndpoint),
+							"timeout":   10,
+							markerField: cfg.Marker,
 						},
 						map[string]any{
 							"type":    "command",
@@ -237,7 +238,7 @@ func TestInstall_SelfHealsEndpoint(t *testing.T) {
 		t.Fatalf("install: %v", err)
 	}
 	root := readJSON(t, path)
-	entries := managedHooksFor(t, root, "Stop")
+	entries := managedHooksFor(t, root, "Stop", cfg.Marker)
 	if len(entries) != 1 {
 		t.Fatalf("managed Stop hooks = %d, want 1", len(entries))
 	}

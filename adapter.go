@@ -30,6 +30,10 @@ type InstallConfig struct {
 	// Endpoint is the base URL the bridge POSTs hook payloads to (e.g.
 	// "http://localhost:9090/hook"). Adapters append /<agent> as needed.
 	Endpoint string
+	// Marker namespaces this consumer's hook entries so multiple consumers
+	// (cortex, capture scripts, custom tools) can install alongside each other
+	// without clobbering. Required; must match ^[a-zA-Z0-9_-]{1,32}$.
+	Marker string
 	// Agents narrows install to a subset; empty means all registered agents.
 	Agents []Agent
 	// Project, when non-empty, targets a project-level config file instead of
@@ -45,6 +49,7 @@ type InstallConfig struct {
 // InstallResult is one adapter's outcome from an install or uninstall pass.
 type InstallResult struct {
 	Agent     Agent
+	Marker    string
 	Installed bool
 	Skipped   bool
 	Reason    string

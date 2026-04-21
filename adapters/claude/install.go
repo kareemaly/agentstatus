@@ -25,10 +25,11 @@ var installedEvents = []string{
 	"Elicitation", "ElicitationResult",
 }
 
-// managedMarker is the JSON field this library stamps on every inner hook it
-// installs. Uninstall removes only entries carrying this marker; user-authored
-// entries are left untouched.
-const managedMarker = "agentstatusManaged"
+// markerField is the JSON field stamped on every inner hook this library
+// installs. Its value is the caller-supplied InstallConfig.Marker, letting
+// multiple consumers coexist without clobbering each other's entries.
+// Install/uninstall act only on entries whose markerField matches.
+const markerField = "agentstatusMarker"
 
 func hookCommand(endpoint string) string {
 	return fmt.Sprintf(
@@ -55,7 +56,7 @@ func resolvePath(cfg agentstatus.InstallConfig) (string, error) {
 }
 
 func installHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, error) {
-	res := agentstatus.InstallResult{Agent: agentstatus.Claude}
+	res := agentstatus.InstallResult{Agent: agentstatus.Claude, Marker: cfg.Marker}
 	path, err := resolvePath(cfg)
 	if err != nil {
 		res.Reason = err.Error()
@@ -81,7 +82,7 @@ func installHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, err
 		return res, nil
 	}
 
-	applyInstall(root, cfg.Endpoint)
+	applyInstall(root, cfg.Endpoint, cfg.Marker)
 
 	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
@@ -102,7 +103,7 @@ func installHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, err
 }
 
 func uninstallHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, error) {
-	res := agentstatus.InstallResult{Agent: agentstatus.Claude}
+	res := agentstatus.InstallResult{Agent: agentstatus.Claude, Marker: cfg.Marker}
 	path, err := resolvePath(cfg)
 	if err != nil {
 		res.Reason = err.Error()
@@ -134,7 +135,7 @@ func uninstallHooks(cfg agentstatus.InstallConfig) (agentstatus.InstallResult, e
 		return res, nil
 	}
 
-	applyUninstall(root)
+	applyUninstall(root, cfg.Marker)
 
 	data, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
@@ -170,7 +171,7 @@ func readSettings(path string) (map[string]any, error) {
 	return root, nil
 }
 
-func applyInstall(root map[string]any, endpoint string) {
+func applyInstall(root map[string]any, endpoint, marker string) {
 	hooks, _ := root["hooks"].(map[string]any)
 	if hooks == nil {
 		hooks = map[string]any{}
@@ -192,7 +193,7 @@ func applyInstall(root map[string]any, endpoint string) {
 				if !ok {
 					continue
 				}
-				if managed, _ := hm[managedMarker].(bool); managed {
+				if m, _ := hm[markerField].(string); m == marker {
 					hm["command"] = wantCmd
 					updated = true
 				}
@@ -206,10 +207,10 @@ func applyInstall(root map[string]any, endpoint string) {
 			"matcher": "",
 			"hooks": []any{
 				map[string]any{
-					"type":        "command",
-					"command":     wantCmd,
-					"timeout":     10,
-					managedMarker: true,
+					"type":      "command",
+					"command":   wantCmd,
+					"timeout":   10,
+					markerField: marker,
 				},
 			},
 		})
@@ -217,7 +218,7 @@ func applyInstall(root map[string]any, endpoint string) {
 	}
 }
 
-func applyUninstall(root map[string]any) {
+func applyUninstall(root map[string]any, marker string) {
 	hooks, _ := root["hooks"].(map[string]any)
 	if hooks == nil {
 		return
@@ -242,7 +243,7 @@ func applyUninstall(root map[string]any) {
 					keptInner = append(keptInner, h)
 					continue
 				}
-				if managed, _ := hm[managedMarker].(bool); managed {
+				if m, _ := hm[markerField].(string); m == marker {
 					continue
 				}
 				keptInner = append(keptInner, h)

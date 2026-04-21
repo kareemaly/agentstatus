@@ -42,9 +42,12 @@ func main() {
     // 2. Serve the hook endpoint
     go http.ListenAndServe(":9090", hub.Handler())
 
-    // 3. Install hooks into every supported agent
+    // 3. Install hooks into every supported agent.
+    // Marker namespaces this consumer's entries so other tools (e.g. a
+    // capture script) can install alongside without clobbering.
     agentstatus.InstallHooks(agentstatus.InstallConfig{
         Endpoint: "http://localhost:9090/hook",
+        Marker:   "my-tool",
         Agents:   agentstatus.AllAgents,
     })
 
@@ -58,14 +61,17 @@ func main() {
 
 Run this, then run `claude`, `codex`, or `opencode` in any project. Events stream into your loop.
 
-To remove hooks cleanly:
+To remove hooks cleanly (scoped to your marker):
 
 ```go
 agentstatus.UninstallHooks(agentstatus.InstallConfig{
     Endpoint: "http://localhost:9090/hook",
+    Marker:   "my-tool",
     Agents:   agentstatus.AllAgents,
 })
 ```
+
+`Marker` is required and must match `^[a-zA-Z0-9_-]{1,32}$`. It namespaces your entries so multiple tools can install side-by-side without overwriting each other; `UninstallHooks` only touches entries with the same marker.
 
 ## What you get per event
 
@@ -92,7 +98,7 @@ Tool names are normalized across agents (Claude's `Read` and OpenCode's `read` b
 |------------|----------------------------------|------------------------------------------------------------------------|
 | Claude Code| Native hooks (JSON on stdin)     | `~/.claude/settings.json` (or project-level)                           |
 | Codex      | `hooks.json` (experimental)      | `~/.codex/hooks.json` (or project-level)                               |
-| OpenCode   | TypeScript plugin                | `$XDG_CONFIG_HOME/opencode/plugins/agentstatus.ts` (or project-level)  |
+| OpenCode   | TypeScript plugin                | `$XDG_CONFIG_HOME/opencode/plugins/agentstatus-<marker>.ts` (or project-level) |
 
 ### Coverage by agent
 
@@ -159,7 +165,7 @@ See the built-in adapters under `adapters/{claude,codex,opencode}` for reference
 
 - **Claude** — nothing extra. Just install hooks and run `claude`.
 - **Codex** — requires `[features] codex_hooks = true` in `~/.codex/config.toml`. The installer warns if it's not set. The library **does not** modify `config.toml`.
-- **OpenCode** — defaults to `$XDG_CONFIG_HOME/opencode/plugins/agentstatus.ts` (falling back to `~/.config/opencode/plugins/` when `XDG_CONFIG_HOME` is unset). Pass `cfg.Project` to install project-locally at `<project>/.opencode/plugins/agentstatus.ts` instead. Disabled if `OPENCODE_PURE=1` is set; installer warns.
+- **OpenCode** — defaults to `$XDG_CONFIG_HOME/opencode/plugins/agentstatus-<marker>.ts` (falling back to `~/.config/opencode/plugins/` when `XDG_CONFIG_HOME` is unset). Pass `cfg.Project` to install project-locally under `<project>/.opencode/plugins/` instead. Disabled if `OPENCODE_PURE=1` is set; installer warns.
 
 ## Platform support
 

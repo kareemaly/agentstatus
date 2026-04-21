@@ -17,6 +17,7 @@ func baseCfg(t *testing.T) agentstatus.InstallConfig {
 	t.Helper()
 	return agentstatus.InstallConfig{
 		Endpoint:   "http://localhost:9090/hook",
+		Marker:     "test",
 		ConfigRoot: t.TempDir(),
 	}
 }
@@ -135,7 +136,7 @@ func TestInstall_SelfHealsEndpoint(t *testing.T) {
 
 func TestInstall_RejectsNonManaged(t *testing.T) {
 	cfg := baseCfg(t)
-	path := filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus.ts")
+	path := filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus-"+cfg.Marker+".ts")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +209,7 @@ func TestUninstall_MissingFile(t *testing.T) {
 
 func TestUninstall_RejectsNonManaged(t *testing.T) {
 	cfg := baseCfg(t)
-	path := filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus.ts")
+	path := filepath.Join(cfg.ConfigRoot, ".config", "opencode", "plugins", "agentstatus-"+cfg.Marker+".ts")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -243,10 +244,11 @@ func TestResolvePath_ProjectBeatsConfigRoot(t *testing.T) {
 
 func TestResolvePath_ConfigRoot(t *testing.T) {
 	cfg := agentstatus.InstallConfig{
+		Marker:     "test",
 		ConfigRoot: "/tmp/config",
 	}
 	path, _ := resolvePath(cfg)
-	want := filepath.Join("/tmp/config", ".config", "opencode", "plugins", "agentstatus.ts")
+	want := filepath.Join("/tmp/config", ".config", "opencode", "plugins", "agentstatus-test.ts")
 	if path != want {
 		t.Fatalf("path = %s, want %s", path, want)
 	}
@@ -254,9 +256,9 @@ func TestResolvePath_ConfigRoot(t *testing.T) {
 
 func TestResolvePath_DefaultsToUserConfigDir_XDG(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "/tmp/fake-xdg")
-	cfg := agentstatus.InstallConfig{}
+	cfg := agentstatus.InstallConfig{Marker: "test"}
 	path, _ := resolvePath(cfg)
-	want := filepath.Join("/tmp/fake-xdg", "opencode", "plugins", "agentstatus.ts")
+	want := filepath.Join("/tmp/fake-xdg", "opencode", "plugins", "agentstatus-test.ts")
 	if path != want {
 		t.Fatalf("path = %s, want %s", path, want)
 	}
@@ -265,18 +267,18 @@ func TestResolvePath_DefaultsToUserConfigDir_XDG(t *testing.T) {
 func TestResolvePath_DefaultsToHomeConfig_WhenXDGUnset(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("HOME", "/tmp/fake-home")
-	cfg := agentstatus.InstallConfig{}
+	cfg := agentstatus.InstallConfig{Marker: "test"}
 	path, _ := resolvePath(cfg)
-	want := filepath.Join("/tmp/fake-home", ".config", "opencode", "plugins", "agentstatus.ts")
+	want := filepath.Join("/tmp/fake-home", ".config", "opencode", "plugins", "agentstatus-test.ts")
 	if path != want {
 		t.Fatalf("path = %s, want %s", path, want)
 	}
 }
 
 func TestResolvePath_ProjectUsesOpencodeDir(t *testing.T) {
-	cfg := agentstatus.InstallConfig{Project: "/home/user/myproj"}
+	cfg := agentstatus.InstallConfig{Project: "/home/user/myproj", Marker: "test"}
 	path, _ := resolvePath(cfg)
-	want := filepath.Join("/home/user/myproj", ".opencode", "plugins", "agentstatus.ts")
+	want := filepath.Join("/home/user/myproj", ".opencode", "plugins", "agentstatus-test.ts")
 	if path != want {
 		t.Fatalf("path = %s, want %s", path, want)
 	}
@@ -321,7 +323,7 @@ func TestPlugin_ContainsID(t *testing.T) {
 	cfg := baseCfg(t)
 	res, _ := installHooks(cfg)
 	data, _ := os.ReadFile(res.Path)
-	if !bytes.Contains(data, []byte("id: \"agentstatus.opencode\"")) {
+	if !bytes.Contains(data, []byte("id: \"agentstatus.opencode."+cfg.Marker+"\"")) {
 		t.Fatal("plugin missing id field")
 	}
 }
