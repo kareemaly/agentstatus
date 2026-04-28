@@ -354,6 +354,20 @@ func TestPlugin_SessionIDFromProps(t *testing.T) {
 	}
 }
 
+func TestPlugin_ContainsCortexSessionID(t *testing.T) {
+	cfg := baseCfg(t)
+	res, _ := installHooks(cfg)
+	data, _ := os.ReadFile(res.Path)
+	// Every POST must carry cortex_session_id so cortexd can back-correlate the
+	// OpenCode session ID to the spawning cortex session when session.created arrives.
+	if !bytes.Contains(data, []byte("cortex_session_id:")) {
+		t.Fatal("plugin missing cortex_session_id field — TUI status overlay will not work for OpenCode")
+	}
+	if !bytes.Contains(data, []byte("CORTEX_SESSION_ID")) {
+		t.Fatal("plugin must read CORTEX_SESSION_ID env var")
+	}
+}
+
 func TestPlugin_ContainsHookEventName(t *testing.T) {
 	cfg := baseCfg(t)
 	res, _ := installHooks(cfg)
