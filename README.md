@@ -1,5 +1,9 @@
 # agentstatus
 
+> [!WARNING]
+> `agentstatus` is deprecated and superseded by [`agentruntime`](https://github.com/hiveryn/agentruntime).
+> New projects should use `github.com/hiveryn/agentruntime` instead.
+
 A Go library that tells you what your coding agents are doing, in real time.
 
 Subscribes to native hook mechanisms in Claude Code, Codex, and OpenCode, normalizes the events into a unified stream, and gives you typed `Event`s you can filter, log, or pipe wherever you want.
